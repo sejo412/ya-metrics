@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -29,8 +30,9 @@ type Metric struct {
 }
 
 func handleUpdate(w http.ResponseWriter, r *http.Request) {
-	checkRequest(w, r)
-
+	if err := checkRequest(w, r); err != nil {
+		log.Print(err)
+	}
 }
 
 func (m Metric) Add() {
@@ -52,32 +54,39 @@ func main() {
 
 }
 
-func checkRequest(w http.ResponseWriter, r *http.Request) {
+func checkRequest(w http.ResponseWriter, r *http.Request) error {
 	path := filepath.Clean(r.URL.Path)
 	splittedReq := strings.Split(path, "/")
 	if len(splittedReq) != 5 {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
+		message := "Not found"
+		http.Error(w, message, http.StatusNotFound)
+		return fmt.Errorf("%s", message)
 	}
-	checkMetricType(w, splittedReq[2], splittedReq[4])
-	return
+	if err := checkMetricType(w, splittedReq[2], splittedReq[4]); err != nil {
+		return err
+	}
+	return nil
 }
 
-func checkMetricType(w http.ResponseWriter, t, v string) {
+func checkMetricType(w http.ResponseWriter, t, v string) error {
+	message := "Bad request: "
 	switch t {
 	case "gauge":
 		if _, err := strconv.ParseFloat(v, 64); err != nil {
-			http.Error(w, "Bad request: not float64", http.StatusBadRequest)
-		} else {
-			return
+			message += "not float64"
+			http.Error(w, message, http.StatusBadRequest)
+			return fmt.Errorf("%s", message)
 		}
 	case "counter":
 		if _, err := strconv.ParseInt(v, 10, 64); err != nil {
-			http.Error(w, "Bad request: not int64", http.StatusBadRequest)
-		} else {
-			return
+			message += "not int64"
+			http.Error(w, message, http.StatusBadRequest)
+			return fmt.Errorf("%s", message)
 		}
 	default:
-		http.Error(w, "Bad request: Unknown type", http.StatusBadRequest)
+		message += "not supported"
+		http.Error(w, message, http.StatusBadRequest)
+		return fmt.Errorf("%s", message)
 	}
+	return nil
 }
