@@ -17,8 +17,7 @@ func Test_incPollCount(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var i int64
-			i = 412
+			i := int64(412)
 			incPollCount(&i)
 			assert.Equal(t, tt.want, i)
 		})
