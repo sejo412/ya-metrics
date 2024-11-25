@@ -134,7 +134,6 @@ func reportMetrics(m *Metrics, report *Report) {
 		ch := make(chan string, len(allMetrics))
 
 		ctx, cancel := context.WithTimeout(context.Background(), reportInterval/2)
-		defer cancel()
 		for _, metric := range allMetrics {
 			go postMetric(ctx, metric, ch)
 			select {
@@ -144,7 +143,7 @@ func reportMetrics(m *Metrics, report *Report) {
 				log.Println(res)
 			}
 		}
-
+		cancel()
 		time.Sleep(reportInterval)
 	}
 }
