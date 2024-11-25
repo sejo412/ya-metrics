@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/sejo412/ya-metrics/internal/config"
+	"log"
 	"math/rand"
+	"net/http"
 	"path"
 	"reflect"
 	"runtime"
+	"sync"
 	"time"
 )
 
 const (
-	UploadsPrefix string = "update"
+	UpdatePrefix  string = "update"
 	GaugePrefix   string = "gauge"
 	CounterPrefix string = "counter"
 )
@@ -49,34 +54,29 @@ var (
 
 func main() {
 	m := new(Metrics)
-	pollMetrics(m)
-
-	//	go pollMetrics(m)
-	//	for _ = range time.Tick(pollInterval) {
-	//		fmt.Println(m.Counter.PollCount)
-	//		fmt.Println(m.Gauge.RandomValue)
-	//		reportMetrics(m)
-	//	}
-	//parseMetric(*m)
-	z := reflect.ValueOf(*m)
 	r := new(Report)
 	r.Gauge = make(map[string]float64)
 	r.Counter = make(map[string]int64)
-	parseMetric(&root, &metricName, z, r)
-	//fmt.Printf("%#v", r)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go pollMetrics(m)
+	wg.Add(1)
+	go reportMetrics(m, r)
+	wg.Wait()
+	defer wg.Done()
 }
 
 func pollMetrics(m *Metrics) {
-	//for {
-	mem := &runtime.MemStats{}
-	runtime.ReadMemStats(mem)
-	incPollCount(&pollCount)
-	randomValue := rand.Float64() * 1000
-	m.Gauge.MemStats = mem
-	m.Gauge.RandomValue = randomValue
-	m.Counter.PollCount = pollCount
-	//	time.Sleep(pollInterval)
-	//}
+	for {
+		mem := &runtime.MemStats{}
+		runtime.ReadMemStats(mem)
+		incPollCount(&pollCount)
+		randomValue := rand.Float64() * 1000
+		m.Gauge.MemStats = mem
+		m.Gauge.RandomValue = randomValue
+		m.Counter.PollCount = pollCount
+		time.Sleep(pollInterval)
+	}
 }
 
 func parseMetric(root, metricName *string, data reflect.Value, report *Report) {
@@ -99,7 +99,7 @@ func parseMetric(root, metricName *string, data reflect.Value, report *Report) {
 		f := data.Elem()
 		parseMetric(root, metricName, f, report)
 	default:
-		prefix := path.Join(UploadsPrefix, *root, *metricName)
+		prefix := path.Join(UpdatePrefix, *root, *metricName)
 		switch *root {
 		case GaugePrefix:
 			if data.Type().ConvertibleTo(float64Type) {
@@ -115,12 +115,61 @@ func parseMetric(root, metricName *string, data reflect.Value, report *Report) {
 	}
 }
 
-func reportMetrics(report *Report) {
-	for path, value := range report.Gauge {
-		fmt.Printf("%s: %f\n", path, value/1000)
+func reportMetrics(m *Metrics, report *Report) {
+	for {
+		// skip if function start before polling
+		if m.Counter.PollCount == 0 {
+			continue
+		}
+		metrics := reflect.ValueOf(*m)
+		parseMetric(&root, &metricName, metrics, report)
+		var allMetrics []string
+		for mpath, value := range report.Gauge {
+			allMetrics = append(allMetrics, fmt.Sprintf("%s/%v", mpath, value))
+		}
+		for mpath, value := range report.Counter {
+			allMetrics = append(allMetrics, fmt.Sprintf("%s/%v", mpath, value))
+		}
+
+		ch := make(chan string, len(allMetrics))
+
+		ctx, cancel := context.WithTimeout(context.Background(), reportInterval/2)
+		defer cancel()
+		for _, metric := range allMetrics {
+			go postMetric(ctx, metric, ch)
+		}
+		select {
+		case <-ctx.Done():
+			log.Printf("Context cancelled: %v", ctx.Err())
+		case res := <-ch:
+			log.Println(res)
+
+		}
+
+		time.Sleep(reportInterval)
 	}
 }
 
 func incPollCount(pollCount *int64) {
 	*pollCount++
+}
+
+func postMetric(ctx context.Context, metric string, ch chan string) {
+	uri := fmt.Sprintf("%s://%s:%s/%s",
+		config.ServerScheme,
+		config.ServerAddress,
+		config.ListenPort,
+		metric)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
+	if err != nil {
+		ch <- fmt.Sprint(err)
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		ch <- fmt.Sprint(err)
+		return
+	}
+	ch <- fmt.Sprintf("Sent %s: %d Ok", metric, resp.StatusCode)
 }
