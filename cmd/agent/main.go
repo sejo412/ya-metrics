@@ -165,10 +165,10 @@ func postMetric(ctx context.Context, metric string, ch chan string) {
 		return
 	}
 	resp, err := http.DefaultClient.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		ch <- fmt.Sprint(err)
 		return
 	}
+	defer resp.Body.Close()
 	ch <- fmt.Sprintf("Sent %s: %d", metric, resp.StatusCode)
 }

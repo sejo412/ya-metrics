@@ -12,3 +12,7 @@ agent:
 .PHONY: tests
 tests:
 	metricstest -test.v -test.run=^$(t)$$ -binary-path=./cmd/server/server -agent-binary-path=./cmd/agent/agent
+
+.PHONY: statictest
+statictest:
+	go vet -vettool=$(which statictest) ./...
