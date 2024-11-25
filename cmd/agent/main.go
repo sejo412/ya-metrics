@@ -137,13 +137,12 @@ func reportMetrics(m *Metrics, report *Report) {
 		defer cancel()
 		for _, metric := range allMetrics {
 			go postMetric(ctx, metric, ch)
-		}
-		select {
-		case <-ctx.Done():
-			log.Printf("Context cancelled: %v", ctx.Err())
-		case res := <-ch:
-			log.Println(res)
-
+			select {
+			case <-ctx.Done():
+				log.Printf("Context cancelled: %v", ctx.Err())
+			case res := <-ch:
+				log.Println(res)
+			}
 		}
 
 		time.Sleep(reportInterval)
@@ -171,5 +170,5 @@ func postMetric(ctx context.Context, metric string, ch chan string) {
 		ch <- fmt.Sprint(err)
 		return
 	}
-	ch <- fmt.Sprintf("Sent %s: %d Ok", metric, resp.StatusCode)
+	ch <- fmt.Sprintf("Sent %s: %d", metric, resp.StatusCode)
 }
