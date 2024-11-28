@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	. "github.com/sejo412/ya-metrics/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -41,7 +43,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080/update/gauge/Frees/preved",
 			want: want{
 				code:     http.StatusBadRequest,
-				response: messageNotFloat,
+				response: fmt.Sprintf("%s: %s", ErrHttpBadRequest, MessageNotFloat),
 			},
 		},
 		{
@@ -49,7 +51,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080/update/counter/Frees/10.55",
 			want: want{
 				code:     http.StatusBadRequest,
-				response: messageNotInt,
+				response: fmt.Sprintf("%s: %s", ErrHttpBadRequest, MessageNotInteger),
 			},
 		},
 		{
@@ -57,7 +59,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080/update/preved/Frees/10",
 			want: want{
 				code:     http.StatusBadRequest,
-				response: messageNotSupported,
+				response: fmt.Sprintf("%s: %s", ErrHttpBadRequest, MessageNotSupported),
 			},
 		},
 		{
@@ -65,7 +67,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080/update/gauge/10",
 			want: want{
 				code:     http.StatusNotFound,
-				response: messageNotFound,
+				response: fmt.Sprintf("%s", ErrHttpNotFound),
 			},
 		},
 		{
@@ -73,7 +75,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080/update/gauge/Frees/subfree/10",
 			want: want{
 				code:     http.StatusNotFound,
-				response: messageNotFound,
+				response: fmt.Sprintf("%s", ErrHttpNotFound),
 			},
 		},
 		{
@@ -81,7 +83,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080",
 			want: want{
 				code:     http.StatusNotFound,
-				response: messageNotFound,
+				response: fmt.Sprintf("%s", ErrHttpNotFound),
 			},
 		},
 		{
@@ -89,7 +91,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "http://localhost:8080/updateeee/qwe/asd",
 			want: want{
 				code:     http.StatusNotFound,
-				response: messageNotFound,
+				response: fmt.Sprintf("%s", ErrHttpNotFound),
 			},
 		}}
 
@@ -97,7 +99,7 @@ func Test_handleUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
 			w := httptest.NewRecorder()
-			handleUpdate(w, request)
+			postUpdate(w, request)
 			res := w.Result()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			defer res.Body.Close()

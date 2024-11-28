@@ -9,6 +9,7 @@ var (
 
 const (
 	MessageNotSupported string = "not supported"
-	MessageNotFloat     string = "not float"
-	MessageNotInteger   string = "not integer"
+	MessageNotFloat     string = "not a float"
+	MessageNotInteger   string = "not a integer"
+	MessageNotFound     string = "not found"
 )

@@ -9,5 +9,7 @@ const (
 
 const (
 	MetricPathPostPrefix string = "/upload"
+	MetricPathGetPrefix  string = "/value"
 	MetricPathPostFormat        = MetricPathPostPrefix + "/%s/%s/%s"
+	MetricPathGetFormat         = MetricPathGetPrefix + "/%s/%s"
 )

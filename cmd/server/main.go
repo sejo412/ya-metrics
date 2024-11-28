@@ -2,50 +2,26 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	. "github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/storage"
 	"net/http"
 )
 
-const (
-	messageNotFloat     string = "Bad request: not a float"
-	messageNotInt       string = "Bad request: not a int"
-	messageNotSupported string = "Bad request: not a supported type"
-	messageNotFound     string = "Not found"
-)
-
-const (
-	listenScheme  string = "http"
-	listenAddress string = "0.0.0.0"
-	listenPort    string = "8080"
-)
-
-type Metrics interface {
-	Add()
-	Replace()
-}
-
-type MemStorage struct {
-	Metrics []Metric
-}
-
-type Metric struct {
-	Name string
-	Type any
-}
-
-func (m Metric) Add() {
-
-}
-
-func (m Metric) Replace() {}
-
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /update/", handleUpdate)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, messageNotFound, http.StatusNotFound)
-	})
-
-	if err := http.ListenAndServe(fmt.Sprintf("%s:%s", listenAddress, listenPort), mux); err != nil {
+	if err := run(); err != nil {
 		panic(err)
 	}
+}
+
+func run() error {
+	r := chi.NewRouter()
+	store := storage.NewMemoryStorage()
+	r.Use(middleware.WithValue("store", store))
+	r.Use(middleware.CleanPath)
+	r.Post("/update/{kind}/{name}/{value}", postUpdate)
+	r.Get("/value/{kind}/{name}", getValue)
+	r.Get("/", getIndex)
+	return http.ListenAndServe(fmt.Sprintf("%s:%s", ListenAddress, ListenPort), r)
 }
