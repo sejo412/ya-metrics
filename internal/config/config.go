@@ -13,3 +13,5 @@ const (
 	ServerAddress string = "localhost"
 	ServerPort           = ListenPort
 )
+
+func main() {}

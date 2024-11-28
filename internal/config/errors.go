@@ -3,8 +3,8 @@ package config
 import "errors"
 
 var (
-	ErrHttpBadRequest = errors.New("bad request")
-	ErrHttpNotFound   = errors.New("not found")
+	ErrHTTPBadRequest = errors.New("bad request")
+	ErrHTTPNotFound   = errors.New("not found")
 )
 
 const (

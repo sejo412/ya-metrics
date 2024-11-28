@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	. "github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"net/http"
 )
@@ -23,5 +23,5 @@ func run() error {
 	r.Post("/update/{kind}/{name}/{value}", postUpdate)
 	r.Get("/value/{kind}/{name}", getValue)
 	r.Get("/", getIndex)
-	return http.ListenAndServe(fmt.Sprintf("%s:%s", ListenAddress, ListenPort), r)
+	return http.ListenAndServe(fmt.Sprintf("%s:%s", config.ListenAddress, config.ListenPort), r)
 }

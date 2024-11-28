@@ -6,7 +6,6 @@ import (
 	"github.com/sejo412/ya-metrics/internal/server"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"net/http"
-	"path/filepath"
 	"time"
 )
 
@@ -15,13 +14,12 @@ func checkRequest(w http.ResponseWriter, r *http.Request, format string) error {
 	if r.Method == http.MethodGet {
 		return nil
 	}
-	path := filepath.Clean(r.URL.Path)
 	metricKind := chi.URLParam(r, "kind")
 	metricValue := chi.URLParam(r, "value")
 
 	if err := server.CheckMetricType(metricKind, metricValue); err != nil {
 		http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
-		return fmt.Errorf("%w: %s %s", err, http.MethodPost, path)
+		return fmt.Errorf("%w: %s %s", err, http.MethodPost, r.URL.Path)
 	}
 	return nil
 }

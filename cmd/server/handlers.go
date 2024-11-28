@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	. "github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/server"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"html/template"
@@ -27,7 +27,7 @@ var index = `<!DOCTYPE html>
 `
 
 func postUpdate(w http.ResponseWriter, r *http.Request) {
-	if err := checkRequest(w, r, MetricPathPostFormat); err != nil {
+	if err := checkRequest(w, r, config.MetricPathPostFormat); err != nil {
 		log.Print(err)
 	}
 	if _, err := io.WriteString(w, ""); err != nil {
@@ -39,14 +39,14 @@ func postUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func getValue(w http.ResponseWriter, r *http.Request) {
-	if err := checkRequest(w, r, MetricPathGetFormat); err != nil {
+	if err := checkRequest(w, r, config.MetricPathGetFormat); err != nil {
 		log.Print(err)
 	}
 	metric := parseGetValueRequest(r)
 	store := r.Context().Value("store").(*storage.MemoryStorage)
 	sum, err := server.GetMetricSum(store, metric)
 	if err != nil {
-		http.Error(w, MessageNotFound, http.StatusNotFound)
+		http.Error(w, config.MessageNotFound, http.StatusNotFound)
 		return
 	}
 	if _, err = io.WriteString(w, fmt.Sprintf("%s=%v",
