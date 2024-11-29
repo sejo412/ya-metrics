@@ -12,7 +12,7 @@ agent:
 .PHONY: tests
 tests:
 	echo "example: make tests t=TestIteration2"
-	metricstest -test.v -test.run=^$(t)$$ -binary-path=./cmd/server/server -agent-binary-path=./cmd/agent/agent
+	metricstest -test.v -test.run=^$(t)$$ -source-path=. -binary-path=./cmd/server/server -agent-binary-path=./cmd/agent/agent
 
 .PHONY: statictest
 statictest:
