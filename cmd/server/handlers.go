@@ -68,7 +68,7 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 			log.Printf("%v: parse value %s", err, metric.Value)
 			return
 		}
-		value = strconv.FormatFloat(v, 'f', 3, 64)
+		value = roundFloatToString(v)
 	}
 
 	if _, err := io.WriteString(w, value); err != nil {
@@ -86,7 +86,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "", http.StatusInternalServerError)
 				return
 			}
-			Metrics[i].Value = strconv.FormatFloat(vFloat, 'f', 3, 64)
+			Metrics[i].Value = roundFloatToString(vFloat)
 		}
 	}
 	tmpl, err := template.New("index").Parse(index)

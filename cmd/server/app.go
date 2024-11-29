@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/storage"
+	"math"
 	"net/http"
 	"strconv"
 )
@@ -53,4 +54,10 @@ func checkMetricType(metricKind, metricValue string) error {
 		return fmt.Errorf("%w: %s", config.ErrHTTPBadRequest, config.MessageNotSupported)
 	}
 	return nil
+}
+
+func roundFloatToString(val float64) string {
+	ratio := math.Pow(10, float64(3))
+	res := math.Round(val*ratio) / ratio
+	return strconv.FormatFloat(res, 'f', -1, 64)
 }
