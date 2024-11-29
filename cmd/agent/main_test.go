@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func Test_parseMetric(t *testing.T) {
@@ -38,7 +39,7 @@ func Test_pollMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pollMetrics(tt.args.m)
+			pollMetrics(tt.args.m, time.Second*2)
 		})
 	}
 }
@@ -75,7 +76,7 @@ func Test_reportMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reportMetrics(tt.args.m, tt.args.report)
+			reportMetrics(tt.args.m, tt.args.report, time.Second*2)
 		})
 	}
 }

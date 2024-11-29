@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/spf13/pflag"
 	"log"
 	"math/rand"
 	"net/http"
@@ -18,11 +19,6 @@ const (
 	UpdatePrefix  string = "update"
 	GaugePrefix   string = "gauge"
 	CounterPrefix string = "counter"
-)
-
-const (
-	pollInterval   = time.Second * 2
-	reportInterval = time.Second * 10
 )
 
 type Metrics struct {
@@ -51,21 +47,33 @@ var (
 	int64Type          = reflect.TypeOf(int64(0))
 )
 
+var (
+	address        string
+	reportInterval int
+	pollInterval   int
+)
+
 func main() {
+	pflag.StringVarP(&address, "address", "a", "localhost:8080", "address to connect to")
+	pflag.IntVarP(&reportInterval, "report-interval", "r", 10, "report interval (in seconds)")
+	pflag.IntVarP(&pollInterval, "poll-interval", "p", 2, "poll interval (in seconds)")
+	pflag.Parse()
+	rInterval := time.Duration(reportInterval) * time.Second
+	pInterval := time.Duration(pollInterval) * time.Second
 	m := new(Metrics)
 	r := new(Report)
 	r.Gauge = make(map[string]float64)
 	r.Counter = make(map[string]int64)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go pollMetrics(m)
+	go pollMetrics(m, pInterval)
 	wg.Add(1)
-	go reportMetrics(m, r)
+	go reportMetrics(m, r, rInterval)
 	wg.Wait()
 	defer wg.Done()
 }
 
-func pollMetrics(m *Metrics) {
+func pollMetrics(m *Metrics, interval time.Duration) {
 	for {
 		mem := &runtime.MemStats{}
 		runtime.ReadMemStats(mem)
@@ -73,7 +81,7 @@ func pollMetrics(m *Metrics) {
 		m.Gauge.MemStats = mem
 		m.Gauge.RandomValue = randomValue
 		m.Counter.PollCount = 1
-		time.Sleep(pollInterval)
+		time.Sleep(interval)
 	}
 }
 
@@ -113,7 +121,7 @@ func parseMetric(root, metricName *string, data reflect.Value, report *Report) {
 	}
 }
 
-func reportMetrics(m *Metrics, report *Report) {
+func reportMetrics(m *Metrics, report *Report, interval time.Duration) {
 	for {
 		// skip if function start before polling
 		if m.Counter.PollCount == 0 {
@@ -131,7 +139,7 @@ func reportMetrics(m *Metrics, report *Report) {
 
 		ch := make(chan string, len(allMetrics))
 
-		ctx, cancel := context.WithTimeout(context.Background(), reportInterval/2)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 		for _, metric := range allMetrics {
 			go postMetric(ctx, metric, ch)
 			select {
@@ -142,15 +150,14 @@ func reportMetrics(m *Metrics, report *Report) {
 			}
 		}
 		cancel()
-		time.Sleep(reportInterval)
+		time.Sleep(interval)
 	}
 }
 
 func postMetric(ctx context.Context, metric string, ch chan string) {
-	uri := fmt.Sprintf("%s://%s:%s/%s",
+	uri := fmt.Sprintf("%s://%s/%s",
 		config.ServerScheme,
-		config.ServerAddress,
-		config.ListenPort,
+		address,
 		metric)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
