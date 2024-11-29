@@ -1,16 +1,13 @@
 package storage
 
-import "time"
-
 type Metric struct {
-	Kind      string
-	Name      string
-	Value     any
-	Timestamp time.Time
+	Kind  string
+	Name  string
+	Value string
 }
 
 type Storage interface {
-	Add(metric Metric)
-	Last(Metric) (metric Metric)
-	LastAll() (metrics []Metric)
+	AddOrUpdate(Metric) error
+	Get(string) (Metric, error)
+	GetAll() []Metric
 }

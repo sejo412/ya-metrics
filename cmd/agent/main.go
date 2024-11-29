@@ -45,7 +45,6 @@ type Report struct {
 }
 
 var (
-	pollCount   int64  = 0
 	root        string = ""
 	metricName  string = ""
 	float64Type        = reflect.TypeOf(float64(0))
@@ -70,11 +69,10 @@ func pollMetrics(m *Metrics) {
 	for {
 		mem := &runtime.MemStats{}
 		runtime.ReadMemStats(mem)
-		incPollCount(&pollCount)
 		randomValue := rand.Float64() * 1000
 		m.Gauge.MemStats = mem
 		m.Gauge.RandomValue = randomValue
-		m.Counter.PollCount = pollCount
+		m.Counter.PollCount = 1
 		time.Sleep(pollInterval)
 	}
 }
@@ -146,10 +144,6 @@ func reportMetrics(m *Metrics, report *Report) {
 		cancel()
 		time.Sleep(reportInterval)
 	}
-}
-
-func incPollCount(pollCount *int64) {
-	*pollCount++
 }
 
 func postMetric(ctx context.Context, metric string, ch chan string) {

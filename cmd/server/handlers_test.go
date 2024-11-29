@@ -27,7 +27,7 @@ func Test_handleUpdate(t *testing.T) {
 	}{
 		{
 			name:    "ok gauge",
-			request: "/update/gauge/Frees/10.909",
+			request: "/update/gauge/testGauge/10.909",
 			want: want{
 				code:     http.StatusOK,
 				response: "",
@@ -35,7 +35,7 @@ func Test_handleUpdate(t *testing.T) {
 		},
 		{
 			name:    "ok counter",
-			request: "/update/counter/Frees/10",
+			request: "/update/counter/testCounter/10",
 			want: want{
 				code:     http.StatusOK,
 				response: "",
@@ -115,7 +115,45 @@ func Test_handleUpdate(t *testing.T) {
 		})
 	}
 }
-
+func Test_getIndex(t *testing.T) {
+	//notFound := "404 page not found"
+	type want struct {
+		code     int
+		response string
+	}
+	tests := []struct {
+		name    string
+		request string
+		want    want
+	}{
+		{
+			name:    "ok index",
+			request: "/",
+			want: want{
+				code:     http.StatusOK,
+				response: "<!DOCTYPE html>",
+			},
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pattern := "/value/{kind}/{name}"
+			pattern = "/"
+			r := chi.NewRouter()
+			store := storage.NewMemoryStorage()
+			r.Use(middleware.WithValue("store", store))
+			r.Handle(http.MethodGet+" "+pattern, http.HandlerFunc(getIndex))
+			ts := httptest.NewServer(r)
+			defer ts.Close()
+			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil)
+			defer resp.Body.Close()
+			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
+			//assert.Equal(t, tt.want.response, body, tt.name)
+			assert.Contains(t, body, tt.want.response, tt.name)
+		})
+	}
+}
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, body)
 	if err != nil {

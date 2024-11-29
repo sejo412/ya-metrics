@@ -1,25 +1,81 @@
 package main
 
 import (
-	"github.com/stretchr/testify/assert"
+	"context"
+	"reflect"
 	"testing"
 )
 
-func Test_incPollCount(t *testing.T) {
+func Test_parseMetric(t *testing.T) {
+	type args struct {
+		root       *string
+		metricName *string
+		data       reflect.Value
+		report     *Report
+	}
 	tests := []struct {
 		name string
-		want int64
+		args args
 	}{
-		{
-			name: "just increment",
-			want: 413,
-		},
+		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := int64(412)
-			incPollCount(&i)
-			assert.Equal(t, tt.want, i)
+			parseMetric(tt.args.root, tt.args.metricName, tt.args.data, tt.args.report)
+		})
+	}
+}
+
+func Test_pollMetrics(t *testing.T) {
+	type args struct {
+		m *Metrics
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pollMetrics(tt.args.m)
+		})
+	}
+}
+
+func Test_postMetric(t *testing.T) {
+	type args struct {
+		ctx    context.Context
+		metric string
+		ch     chan string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			postMetric(tt.args.ctx, tt.args.metric, tt.args.ch)
+		})
+	}
+}
+
+func Test_reportMetrics(t *testing.T) {
+	type args struct {
+		m      *Metrics
+		report *Report
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reportMetrics(tt.args.m, tt.args.report)
 		})
 	}
 }
