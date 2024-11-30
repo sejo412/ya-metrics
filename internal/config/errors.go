@@ -4,7 +4,6 @@ import "errors"
 
 var (
 	ErrHTTPBadRequest = errors.New("bad request")
-	ErrHTTPNotFound   = errors.New("not found")
 )
 
 const (

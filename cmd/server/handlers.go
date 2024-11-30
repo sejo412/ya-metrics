@@ -26,7 +26,7 @@ var index = `<!DOCTYPE html>
 `
 
 func postUpdate(w http.ResponseWriter, r *http.Request) {
-	if err := checkRequest(w, r, config.MetricPathPostFormat); err != nil {
+	if err := checkRequest(w, r); err != nil {
 		log.Print(err)
 	}
 	if _, err := io.WriteString(w, ""); err != nil {
@@ -41,7 +41,7 @@ func postUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func getValue(w http.ResponseWriter, r *http.Request) {
-	if err := checkRequest(w, r, config.MetricPathGetFormat); err != nil {
+	if err := checkRequest(w, r); err != nil {
 		log.Print(err)
 	}
 	req := parseGetValueRequest(r)
@@ -53,7 +53,7 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 	}
 	var value string
 	switch metric.Kind {
-	case config.MetricNameCounter:
+	case config.MetricKindCounter:
 		v, err := strconv.ParseInt(metric.Value, 10, 64)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
@@ -61,7 +61,7 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		value = strconv.FormatInt(v, 10)
-	case config.MetricNameGauge:
+	case config.MetricKindGauge:
 		v, err := strconv.ParseFloat(metric.Value, 64)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
@@ -80,7 +80,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	store := r.Context().Value("store").(*storage.MemoryStorage)
 	Metrics := store.GetAll()
 	for i, metric := range Metrics {
-		if metric.Kind == config.MetricNameGauge {
+		if metric.Kind == config.MetricKindGauge {
 			vFloat, err := strconv.ParseFloat(metric.Value, 64)
 			if err != nil {
 				http.Error(w, "", http.StatusInternalServerError)

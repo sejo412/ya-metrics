@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+func testConfig() *Config {
+	return &Config{
+		RealReportInterval: 2 * time.Second,
+		RealPollInterval:   1 * time.Second,
+	}
+}
+
 func Test_parseMetric(t *testing.T) {
 	type args struct {
 		root       *string
@@ -39,7 +46,7 @@ func Test_pollMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pollMetrics(tt.args.m, time.Second*2)
+			pollMetrics(tt.args.m, testConfig())
 		})
 	}
 }
@@ -58,7 +65,7 @@ func Test_postMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			postMetric(tt.args.ctx, tt.args.metric, tt.args.ch)
+			postMetric(tt.args.ctx, tt.args.metric, testConfig(), tt.args.ch)
 		})
 	}
 }
@@ -76,7 +83,7 @@ func Test_reportMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reportMetrics(tt.args.m, tt.args.report, time.Second*2)
+			reportMetrics(tt.args.m, tt.args.report, testConfig())
 		})
 	}
 }

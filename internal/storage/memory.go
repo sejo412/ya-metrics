@@ -16,7 +16,7 @@ func NewMemoryStorage() *MemoryStorage {
 }
 
 func (s *MemoryStorage) AddOrUpdate(metric Metric) error {
-	if metric.Kind == config.MetricNameCounter {
+	if metric.Kind == config.MetricKindCounter {
 		if m, ok := s.Metrics[metric.Name]; ok {
 			currentInt, err := strconv.Atoi(m.Value)
 			if err != nil {

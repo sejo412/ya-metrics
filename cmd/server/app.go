@@ -10,7 +10,8 @@ import (
 	"strconv"
 )
 
-func checkRequest(w http.ResponseWriter, r *http.Request, format string) error {
+// checkRequest wrapper for checkMetricType function for POST method
+func checkRequest(w http.ResponseWriter, r *http.Request) error {
 	// skip check metric kind for method GET
 	if r.Method == http.MethodGet {
 		return nil
@@ -25,6 +26,7 @@ func checkRequest(w http.ResponseWriter, r *http.Request, format string) error {
 	return nil
 }
 
+// parsePostUpdateRequest parses POST params to Metric type
 func parsePostUpdateRequest(r *http.Request) storage.Metric {
 	return storage.Metric{
 		Kind:  chi.URLParam(r, "kind"),
@@ -33,6 +35,7 @@ func parsePostUpdateRequest(r *http.Request) storage.Metric {
 	}
 }
 
+// parseGetValueRequest parses GET for request Metric
 func parseGetValueRequest(r *http.Request) storage.Metric {
 	return storage.Metric{
 		Kind: chi.URLParam(r, "kind"),
@@ -40,13 +43,14 @@ func parseGetValueRequest(r *http.Request) storage.Metric {
 	}
 }
 
+// checkMetricType returns error if metric value does not match kind
 func checkMetricType(metricKind, metricValue string) error {
 	switch metricKind {
-	case config.MetricNameGauge:
+	case config.MetricKindGauge:
 		if _, err := strconv.ParseFloat(metricValue, 64); err != nil {
 			return fmt.Errorf("%w: %s", config.ErrHTTPBadRequest, config.MessageNotFloat)
 		}
-	case config.MetricNameCounter:
+	case config.MetricKindCounter:
 		if _, err := strconv.ParseInt(metricValue, 10, 64); err != nil {
 			return fmt.Errorf("%w: %s", config.ErrHTTPBadRequest, config.MessageNotInteger)
 		}
@@ -56,6 +60,7 @@ func checkMetricType(metricKind, metricValue string) error {
 	return nil
 }
 
+// roundFloatToString round float and convert it to string (trims trailing zeroes)
 func roundFloatToString(val float64) string {
 	ratio := math.Pow(10, float64(3))
 	res := math.Round(val*ratio) / ratio
