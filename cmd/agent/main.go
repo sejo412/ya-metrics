@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/caarlos0/env/v6"
+	"github.com/sejo412/ya-metrics/cmd/agent/app"
 	"github.com/spf13/pflag"
 	"log"
 	"sync"
@@ -26,15 +28,15 @@ func run() error {
 	}
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
-	m := new(Metrics)
-	r := new(Report)
+	m := new(app.Metrics)
+	r := new(app.Report)
 	r.Gauge = make(map[string]float64)
 	r.Counter = make(map[string]int64)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go pollMetrics(m, &cfg)
+	go app.PollMetrics(m, cfg.RealPollInterval)
 	wg.Add(1)
-	go reportMetrics(m, r, &cfg)
+	go app.ReportMetrics(m, r, fmt.Sprintf("%s://%s", ServerScheme, cfg.Address), cfg.RealReportInterval, ContextTimeout)
 	wg.Wait()
 	wg.Done()
 	return nil

@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sejo412/ya-metrics/cmd/server/app"
-	"github.com/sejo412/ya-metrics/internal/domain"
+	"github.com/sejo412/ya-metrics/internal/models"
 	"html/template"
 	"io"
 	"log"
@@ -18,7 +18,7 @@ var index = `<!DOCTYPE html>
 </head>
 <body>
 	{{- range $k, $v := . }} 
-	{{ $v.Name }}={{ $v.Value }}
+	{{ $k }}={{ $v }}
 	<br>
 	{{- end }}
 </body>
@@ -26,7 +26,7 @@ var index = `<!DOCTYPE html>
 `
 
 func postUpdate(w http.ResponseWriter, r *http.Request) {
-	metric := domain.Metric{
+	metric := models.Metric{
 		Kind:  chi.URLParam(r, "kind"),
 		Name:  chi.URLParam(r, "name"),
 		Value: chi.URLParam(r, "value"),
@@ -43,10 +43,10 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 	store := r.Context().Value("store").(app.Storage)
 	value, err := app.GetMetricValue(store, name)
 	switch err {
-	case domain.ErrHTTPNotFound:
+	case models.ErrHTTPNotFound:
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
-	case domain.ErrHTTPInternalServerError:
+	case models.ErrHTTPInternalServerError:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Printf("%v: get value %s", err, name)
 		return

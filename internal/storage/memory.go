@@ -2,21 +2,21 @@ package storage
 
 import (
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/domain"
+	"github.com/sejo412/ya-metrics/internal/models"
 	"strconv"
 )
 
 type MemoryStorage struct {
-	metrics map[string]domain.Metric
+	metrics map[string]models.Metric
 }
 
 func NewMemoryStorage() *MemoryStorage {
-	metrics := make(map[string]domain.Metric)
+	metrics := make(map[string]models.Metric)
 	return &MemoryStorage{metrics: metrics}
 }
 
-func (s *MemoryStorage) AddOrUpdate(metric domain.Metric) error {
-	if metric.Kind == domain.MetricKindCounter {
+func (s *MemoryStorage) AddOrUpdate(metric models.Metric) error {
+	if metric.Kind == models.MetricKindCounter {
 		if m, ok := s.metrics[metric.Name]; ok {
 			currentInt, err := strconv.Atoi(m.Value)
 			if err != nil {
@@ -34,15 +34,15 @@ func (s *MemoryStorage) AddOrUpdate(metric domain.Metric) error {
 	return nil
 }
 
-func (s *MemoryStorage) Get(name string) (domain.Metric, error) {
+func (s *MemoryStorage) Get(name string) (models.Metric, error) {
 	if metric, ok := s.metrics[name]; ok {
 		return metric, nil
 	}
-	return domain.Metric{}, domain.ErrHTTPNotFound
+	return models.Metric{}, models.ErrHTTPNotFound
 }
 
-func (s *MemoryStorage) GetAll() []domain.Metric {
-	metrics := make([]domain.Metric, 0, len(s.metrics))
+func (s *MemoryStorage) GetAll() []models.Metric {
+	metrics := make([]models.Metric, 0, len(s.metrics))
 	for _, metric := range s.metrics {
 		metrics = append(metrics, metric)
 	}

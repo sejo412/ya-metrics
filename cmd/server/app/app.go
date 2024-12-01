@@ -2,32 +2,32 @@ package app
 
 import (
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/domain"
+	"github.com/sejo412/ya-metrics/internal/models"
 	"math"
 	"strconv"
 )
 
 type Storage interface {
-	AddOrUpdate(domain.Metric) error
-	Get(string) (domain.Metric, error)
-	GetAll() []domain.Metric
+	AddOrUpdate(models.Metric) error
+	Get(string) (models.Metric, error)
+	GetAll() []models.Metric
 }
 
 // CheckMetricKind returns error if metric value does not match kind
-func CheckMetricKind(metric domain.Metric) error {
+func CheckMetricKind(metric models.Metric) error {
 	_, err := getMetricValueString(metric)
 	switch err {
-	case domain.ErrNotFloat:
-		return fmt.Errorf("%w: %s", domain.ErrHTTPBadRequest, domain.MessageNotFloat)
-	case domain.ErrNotInteger:
-		return fmt.Errorf("%w: %s", domain.ErrHTTPBadRequest, domain.MessageNotInteger)
-	case domain.ErrNotSupported:
-		return fmt.Errorf("%w: %s", domain.ErrHTTPBadRequest, domain.MessageNotSupported)
+	case models.ErrNotFloat:
+		return fmt.Errorf("%w: %s", models.ErrHTTPBadRequest, models.MessageNotFloat)
+	case models.ErrNotInteger:
+		return fmt.Errorf("%w: %s", models.ErrHTTPBadRequest, models.MessageNotInteger)
+	case models.ErrNotSupported:
+		return fmt.Errorf("%w: %s", models.ErrHTTPBadRequest, models.MessageNotSupported)
 	}
 	return nil
 }
 
-func UpdateMetric(st Storage, metric domain.Metric) error {
+func UpdateMetric(st Storage, metric models.Metric) error {
 	return st.AddOrUpdate(metric)
 }
 
@@ -57,21 +57,21 @@ func roundFloatToString(val float64) string {
 	return strconv.FormatFloat(res, 'f', -1, 64)
 }
 
-func getMetricValueString(metric domain.Metric) (string, error) {
+func getMetricValueString(metric models.Metric) (string, error) {
 	switch metric.Kind {
-	case domain.MetricKindGauge:
+	case models.MetricKindGauge:
 		v, err := strconv.ParseFloat(metric.Value, 64)
 		if err != nil {
-			return "", domain.ErrNotFloat
+			return "", models.ErrNotFloat
 		}
 		return roundFloatToString(v), nil
-	case domain.MetricKindCounter:
+	case models.MetricKindCounter:
 		v, err := strconv.ParseInt(metric.Value, 10, 64)
 		if err != nil {
-			return "", domain.ErrNotInteger
+			return "", models.ErrNotInteger
 		}
 		return strconv.FormatInt(v, 10), nil
 	default:
-		return "", domain.ErrNotSupported
+		return "", models.ErrNotSupported
 	}
 }
