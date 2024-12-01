@@ -12,7 +12,7 @@ type MemoryStorage struct {
 
 func NewMemoryStorage() *MemoryStorage {
 	metrics := make(map[string]domain.Metric)
-	return &MemoryStorage{metrics}
+	return &MemoryStorage{metrics: metrics}
 }
 
 func (s *MemoryStorage) AddOrUpdate(metric domain.Metric) error {

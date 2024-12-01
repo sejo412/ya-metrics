@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	"strconv"
 )
 
-// checkRequest wrapper for checkMetricType function for POST method
-func checkRequest(w http.ResponseWriter, r *http.Request) error {
+// CheckRequest wrapper for CheckMetricType function for POST method
+func CheckRequest(w http.ResponseWriter, r *http.Request) error {
 	// skip check metric kind for method GET
 	if r.Method == http.MethodGet {
 		return nil
@@ -18,15 +18,15 @@ func checkRequest(w http.ResponseWriter, r *http.Request) error {
 	metricKind := chi.URLParam(r, "kind")
 	metricValue := chi.URLParam(r, "value")
 
-	if err := checkMetricType(metricKind, metricValue); err != nil {
+	if err := CheckMetricType(metricKind, metricValue); err != nil {
 		http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
 		return fmt.Errorf("%w: %s %s", err, http.MethodPost, r.URL.Path)
 	}
 	return nil
 }
 
-// parsePostUpdateRequest parses POST params to Metric type
-func parsePostUpdateRequest(r *http.Request) domain.Metric {
+// ParsePostUpdateRequest parses POST params to Metric type
+func ParsePostUpdateRequest(r *http.Request) domain.Metric {
 	return domain.Metric{
 		Kind:  chi.URLParam(r, "kind"),
 		Name:  chi.URLParam(r, "name"),
@@ -34,16 +34,16 @@ func parsePostUpdateRequest(r *http.Request) domain.Metric {
 	}
 }
 
-// parseGetValueRequest parses GET for request Metric
-func parseGetValueRequest(r *http.Request) domain.Metric {
+// ParseGetValueRequest parses GET for request Metric
+func ParseGetValueRequest(r *http.Request) domain.Metric {
 	return domain.Metric{
 		Kind: chi.URLParam(r, "kind"),
 		Name: chi.URLParam(r, "name"),
 	}
 }
 
-// checkMetricType returns error if metric value does not match kind
-func checkMetricType(metricKind, metricValue string) error {
+// CheckMetricType returns error if metric value does not match kind
+func CheckMetricType(metricKind, metricValue string) error {
 	switch metricKind {
 	case domain.MetricKindGauge:
 		if _, err := strconv.ParseFloat(metricValue, 64); err != nil {
@@ -59,8 +59,8 @@ func checkMetricType(metricKind, metricValue string) error {
 	return nil
 }
 
-// roundFloatToString round float and convert it to string (trims trailing zeroes)
-func roundFloatToString(val float64) string {
+// RoundFloatToString round float and convert it to string (trims trailing zeroes)
+func RoundFloatToString(val float64) string {
 	ratio := math.Pow(10, float64(3))
 	res := math.Round(val*ratio) / ratio
 	return strconv.FormatFloat(res, 'f', -1, 64)
