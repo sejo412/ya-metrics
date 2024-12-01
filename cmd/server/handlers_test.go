@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	. "github.com/sejo412/ya-metrics/internal/config"
+	. "github.com/sejo412/ya-metrics/internal/domain"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"io"

@@ -1,13 +1,9 @@
 package storage
 
-type Metric struct {
-	Kind  string
-	Name  string
-	Value string
-}
+import "github.com/sejo412/ya-metrics/internal/domain"
 
 type Storage interface {
-	AddOrUpdate(Metric) error
-	Get(string) (Metric, error)
-	GetAll() []Metric
+	AddOrUpdate(domain.Metric) error
+	Get(string) (domain.Metric, error)
+	GetAll() []domain.Metric
 }

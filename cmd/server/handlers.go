@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/domain"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"html/template"
 	"io"
@@ -53,7 +53,7 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 	}
 	var value string
 	switch metric.Kind {
-	case config.MetricKindCounter:
+	case domain.MetricKindCounter:
 		v, err := strconv.ParseInt(metric.Value, 10, 64)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
@@ -61,7 +61,7 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		value = strconv.FormatInt(v, 10)
-	case config.MetricKindGauge:
+	case domain.MetricKindGauge:
 		v, err := strconv.ParseFloat(metric.Value, 64)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
@@ -80,7 +80,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	store := r.Context().Value("store").(*storage.MemoryStorage)
 	Metrics := store.GetAll()
 	for i, metric := range Metrics {
-		if metric.Kind == config.MetricKindGauge {
+		if metric.Kind == domain.MetricKindGauge {
 			vFloat, err := strconv.ParseFloat(metric.Value, 64)
 			if err != nil {
 				http.Error(w, "", http.StatusInternalServerError)

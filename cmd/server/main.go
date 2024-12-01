@@ -4,7 +4,7 @@ import (
 	"github.com/caarlos0/env/v6"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/domain"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/spf13/pflag"
 	"log"
@@ -29,8 +29,8 @@ func run() error {
 	store := storage.NewMemoryStorage()
 	r.Use(middleware.WithValue("store", store))
 	r.Use(middleware.CleanPath)
-	r.Post("/"+config.MetricPathPostPrefix+"/{kind}/{name}/{value}", postUpdate)
-	r.Get("/"+config.MetricPathGetPrefix+"/{kind}/{name}", getValue)
+	r.Post("/"+domain.MetricPathPostPrefix+"/{kind}/{name}/{value}", postUpdate)
+	r.Get("/"+domain.MetricPathGetPrefix+"/{kind}/{name}", getValue)
 	r.Get("/", getIndex)
 	return http.ListenAndServe(cfg.Address, r)
 }

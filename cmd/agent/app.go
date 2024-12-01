@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/domain"
 	"log"
 	"math/rand"
 	"net/http"
@@ -31,9 +31,9 @@ func parseMetric(root, metricName *string, data reflect.Value, report *Report) {
 	types := data.Type()
 	switch types.Name() {
 	case "Gauge":
-		*root = config.MetricKindGauge
+		*root = domain.MetricKindGauge
 	case "Counter":
-		*root = config.MetricKindCounter
+		*root = domain.MetricKindCounter
 	}
 
 	switch data.Kind() {
@@ -47,14 +47,14 @@ func parseMetric(root, metricName *string, data reflect.Value, report *Report) {
 		f := data.Elem()
 		parseMetric(root, metricName, f, report)
 	default:
-		prefix := path.Join(config.MetricPathPostPrefix, *root, *metricName)
+		prefix := path.Join(domain.MetricPathPostPrefix, *root, *metricName)
 		switch *root {
-		case config.MetricKindGauge:
+		case domain.MetricKindGauge:
 			if data.Type().ConvertibleTo(float64Type) {
 				v := data.Convert(float64Type)
 				report.Gauge[prefix] = v.Float()
 			}
-		case config.MetricKindCounter:
+		case domain.MetricKindCounter:
 			if data.Type().ConvertibleTo(int64Type) {
 				v := data.Convert(int64Type)
 				report.Counter[prefix] = v.Int()
@@ -81,15 +81,18 @@ func reportMetrics(m *Metrics, report *Report, c *Config) {
 		}
 
 		ch := make(chan string, len(allMetrics))
+		chErr := make(chan error, len(allMetrics))
 
 		ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout)
 		for _, metric := range allMetrics {
-			go postMetric(ctx, metric, c, ch)
+			go postMetric(ctx, metric, c, ch, chErr)
 			select {
 			case <-ctx.Done():
 				log.Printf("Context cancelled: %v", ctx.Err())
 			case res := <-ch:
 				log.Println(res)
+			case err := <-chErr:
+				log.Printf("Error: %v", err)
 			}
 		}
 		cancel()
@@ -98,7 +101,7 @@ func reportMetrics(m *Metrics, report *Report, c *Config) {
 }
 
 // postMetric push metrics to server
-func postMetric(ctx context.Context, metric string, c *Config, ch chan string) {
+func postMetric(ctx context.Context, metric string, c *Config, ch chan string, chErr chan error) {
 	uri := fmt.Sprintf("%s://%s/%s",
 		ServerScheme,
 		c.Address,
@@ -106,12 +109,12 @@ func postMetric(ctx context.Context, metric string, c *Config, ch chan string) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
 	if err != nil {
-		ch <- fmt.Sprint(err)
+		chErr <- err
 		return
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		ch <- fmt.Sprint(err)
+		chErr <- err
 		return
 	}
 	defer resp.Body.Close()

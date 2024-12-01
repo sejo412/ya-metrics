@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
-	"github.com/sejo412/ya-metrics/internal/config"
-	"github.com/sejo412/ya-metrics/internal/storage"
+	"github.com/sejo412/ya-metrics/internal/domain"
 	"math"
 	"net/http"
 	"strconv"
@@ -27,8 +26,8 @@ func checkRequest(w http.ResponseWriter, r *http.Request) error {
 }
 
 // parsePostUpdateRequest parses POST params to Metric type
-func parsePostUpdateRequest(r *http.Request) storage.Metric {
-	return storage.Metric{
+func parsePostUpdateRequest(r *http.Request) domain.Metric {
+	return domain.Metric{
 		Kind:  chi.URLParam(r, "kind"),
 		Name:  chi.URLParam(r, "name"),
 		Value: chi.URLParam(r, "value"),
@@ -36,8 +35,8 @@ func parsePostUpdateRequest(r *http.Request) storage.Metric {
 }
 
 // parseGetValueRequest parses GET for request Metric
-func parseGetValueRequest(r *http.Request) storage.Metric {
-	return storage.Metric{
+func parseGetValueRequest(r *http.Request) domain.Metric {
+	return domain.Metric{
 		Kind: chi.URLParam(r, "kind"),
 		Name: chi.URLParam(r, "name"),
 	}
@@ -46,16 +45,16 @@ func parseGetValueRequest(r *http.Request) storage.Metric {
 // checkMetricType returns error if metric value does not match kind
 func checkMetricType(metricKind, metricValue string) error {
 	switch metricKind {
-	case config.MetricKindGauge:
+	case domain.MetricKindGauge:
 		if _, err := strconv.ParseFloat(metricValue, 64); err != nil {
-			return fmt.Errorf("%w: %s", config.ErrHTTPBadRequest, config.MessageNotFloat)
+			return fmt.Errorf("%w: %s", domain.ErrHTTPBadRequest, domain.MessageNotFloat)
 		}
-	case config.MetricKindCounter:
+	case domain.MetricKindCounter:
 		if _, err := strconv.ParseInt(metricValue, 10, 64); err != nil {
-			return fmt.Errorf("%w: %s", config.ErrHTTPBadRequest, config.MessageNotInteger)
+			return fmt.Errorf("%w: %s", domain.ErrHTTPBadRequest, domain.MessageNotInteger)
 		}
 	default:
-		return fmt.Errorf("%w: %s", config.ErrHTTPBadRequest, config.MessageNotSupported)
+		return fmt.Errorf("%w: %s", domain.ErrHTTPBadRequest, domain.MessageNotSupported)
 	}
 	return nil
 }
