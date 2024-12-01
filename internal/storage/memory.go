@@ -38,7 +38,7 @@ func (s *MemoryStorage) Get(name string) (domain.Metric, error) {
 	if metric, ok := s.metrics[name]; ok {
 		return metric, nil
 	}
-	return domain.Metric{}, fmt.Errorf("metric not found")
+	return domain.Metric{}, domain.ErrHTTPNotFound
 }
 
 func (s *MemoryStorage) GetAll() []domain.Metric {
