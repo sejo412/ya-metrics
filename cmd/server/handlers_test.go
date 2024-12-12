@@ -5,7 +5,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/cmd/server/app"
-	. "github.com/sejo412/ya-metrics/internal/models"
+	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -47,7 +47,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "/update/gauge/Frees/preved",
 			want: want{
 				code:     http.StatusBadRequest,
-				response: fmt.Sprintf("%s: %s", ErrHTTPBadRequest, MessageNotFloat),
+				response: fmt.Sprintf("%s: %s", m.ErrHTTPBadRequest, m.MessageNotFloat),
 			},
 		},
 		{
@@ -55,7 +55,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "/update/counter/Frees/10.55",
 			want: want{
 				code:     http.StatusBadRequest,
-				response: fmt.Sprintf("%s: %s", ErrHTTPBadRequest, MessageNotInteger),
+				response: fmt.Sprintf("%s: %s", m.ErrHTTPBadRequest, m.MessageNotInteger),
 			},
 		},
 		{
@@ -63,7 +63,7 @@ func Test_handleUpdate(t *testing.T) {
 			request: "/update/preved/Frees/10",
 			want: want{
 				code:     http.StatusBadRequest,
-				response: fmt.Sprintf("%s: %s", ErrHTTPBadRequest, MessageNotSupported),
+				response: fmt.Sprintf("%s: %s", m.ErrHTTPBadRequest, m.MessageNotSupported),
 			},
 		},
 		{
@@ -107,7 +107,7 @@ func Test_handleUpdate(t *testing.T) {
 			r.Use(middleware.WithValue("store", store))
 			r.Handle(http.MethodPost+" "+pattern, http.HandlerFunc(
 				func(w http.ResponseWriter, r *http.Request) {
-					metric := Metric{
+					metric := m.Metric{
 						Kind:  chi.URLParam(r, "kind"),
 						Value: chi.URLParam(r, "value"),
 					}

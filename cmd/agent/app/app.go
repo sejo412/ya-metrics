@@ -79,7 +79,7 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 func postMetric(ctx context.Context, metric, address string, ch chan string, chErr chan error) {
 	uri := address + "/" + metric
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
 	if err != nil {
 		chErr <- err
 		return
