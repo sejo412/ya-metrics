@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/caarlos0/env/v6"
-	"github.com/sejo412/ya-metrics/cmd/agent/app"
-	"github.com/spf13/pflag"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/caarlos0/env/v6"
+	"github.com/sejo412/ya-metrics/cmd/agent/app"
+	"github.com/spf13/pflag"
 )
 
 func main() {

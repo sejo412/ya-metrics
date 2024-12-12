@@ -1,14 +1,15 @@
 package main
 
 import (
-	"github.com/go-chi/chi/v5"
-	"github.com/sejo412/ya-metrics/cmd/server/app"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/sejo412/ya-metrics/cmd/server/app"
+	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 var index = `<!DOCTYPE html>
@@ -100,7 +101,7 @@ func WithLogging(h http.Handler) http.Handler {
 		start := time.Now()
 
 		responseData := &responseData{
-			status: 0,
+			status: 200,
 			size:   0,
 		}
 		lw := loggingResponseWriter{

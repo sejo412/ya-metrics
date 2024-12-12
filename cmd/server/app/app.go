@@ -2,10 +2,13 @@ package app
 
 import (
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"math"
 	"strconv"
+
+	"github.com/sejo412/ya-metrics/internal/models"
 )
+
+const base10 float64 = 10
 
 type Storage interface {
 	AddOrUpdate(models.Metric) error
@@ -52,7 +55,7 @@ func GetAllMetricValues(st Storage) map[string]string {
 
 // RoundFloatToString round float and convert it to string (trims trailing zeroes)
 func roundFloatToString(val float64) string {
-	ratio := math.Pow(10, float64(3))
+	ratio := math.Pow(base10, float64(3))
 	res := math.Round(val*ratio) / ratio
 	return strconv.FormatFloat(res, 'f', -1, 64)
 }

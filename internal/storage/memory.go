@@ -2,8 +2,9 @@ package storage
 
 import (
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"strconv"
+
+	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 type MemoryStorage struct {

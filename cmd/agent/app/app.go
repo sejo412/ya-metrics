@@ -2,22 +2,27 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"runtime"
 	"time"
+
+	"github.com/sejo412/ya-metrics/internal/models"
 )
+
+const maxRand = 10000
 
 // PollMetrics collects runtime metrics in infinite loop
 func PollMetrics(m *Metrics, interval time.Duration) {
 	for {
+		cryptoRand, _ := rand.Int(rand.Reader, big.NewInt(maxRand))
 		mem := &runtime.MemStats{}
 		runtime.ReadMemStats(mem)
 		m.Gauge.MemStats = mem
-		m.Gauge.RandomValue = rand.Float64() * 1000
+		m.Gauge.RandomValue = float64(cryptoRand.Uint64())
 		m.Counter.PollCount = 1
 		time.Sleep(interval)
 	}
@@ -63,7 +68,7 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 			go postMetric(ctx, metric, address, ch, chErr)
 			select {
 			case <-ctx.Done():
-				log.Printf("Context cancelled: %v", ctx.Err())
+				log.Printf("Context canceled: %v", ctx.Err())
 			case res := <-ch:
 				log.Println(res)
 			case err := <-chErr:

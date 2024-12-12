@@ -1,18 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/cmd/server/app"
 	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 func Test_handleUpdate(t *testing.T) {
@@ -149,7 +151,6 @@ func Test_getIndex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pattern := "/value/{kind}/{name}"
-			pattern = "/"
 			r := chi.NewRouter()
 			store := storage.NewMemoryStorage()
 			r.Use(middleware.WithValue("store", store))
@@ -164,7 +165,8 @@ func Test_getIndex(t *testing.T) {
 	}
 }
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
-	req, err := http.NewRequest(method, ts.URL+path, body)
+	ctx := context.TODO()
+	req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
 	if err != nil {
 		t.Fatal(err)
 		return nil, ""
