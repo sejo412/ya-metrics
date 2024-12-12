@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/caarlos0/env/v6"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -9,9 +13,10 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/spf13/pflag"
-	"log"
-	"net/http"
+	"go.uber.org/zap"
 )
+
+var sugar zap.SugaredLogger
 
 func main() {
 	if err := run(); err != nil {
@@ -27,8 +32,17 @@ func run() error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err = logger.Sync()
+	}()
+	sugar = *logger.Sugar()
 	r := chi.NewRouter()
 	store := storage.NewMemoryStorage()
+	r.Use(WithLogging)
 	r.Use(middleware.WithValue("store", store))
 	r.Use(middleware.CleanPath)
 	r.Post("/"+models.MetricPathPostPrefix+"/{kind}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
@@ -44,5 +58,11 @@ func run() error {
 	})
 	r.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", getValue)
 	r.Get("/", getIndex)
-	return http.ListenAndServe(cfg.Address, r)
+	sugar.Infow("server starting", "address", cfg.Address)
+	server := &http.Server{
+		Addr:              cfg.Address,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	return server.ListenAndServe()
 }

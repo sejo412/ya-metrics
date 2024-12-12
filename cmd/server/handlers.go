@@ -1,13 +1,15 @@
 package main
 
 import (
-	"github.com/go-chi/chi/v5"
-	"github.com/sejo412/ya-metrics/cmd/server/app"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/sejo412/ya-metrics/cmd/server/app"
+	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 var index = `<!DOCTYPE html>
@@ -24,6 +26,27 @@ var index = `<!DOCTYPE html>
 </body>
 </html>
 `
+
+type responseData struct {
+	status int
+	size   int
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	responseData *responseData
+}
+
+func (r *loggingResponseWriter) Write(data []byte) (int, error) {
+	size, err := r.ResponseWriter.Write(data)
+	r.responseData.size += size
+	return size, err
+}
+
+func (r *loggingResponseWriter) WriteHeader(statusCode int) {
+	r.ResponseWriter.WriteHeader(statusCode)
+	r.responseData.status = statusCode
+}
 
 func postUpdate(w http.ResponseWriter, r *http.Request) {
 	metric := models.Metric{
@@ -71,4 +94,29 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		return
 	}
+}
+
+func WithLogging(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		responseData := &responseData{
+			status: 200,
+			size:   0,
+		}
+		lw := loggingResponseWriter{
+			ResponseWriter: w,
+			responseData:   responseData}
+
+		h.ServeHTTP(&lw, r)
+		duration := time.Since(start)
+		sugar.Infow(
+			"incoming request",
+			"uri", r.RequestURI,
+			"method", r.Method,
+			"status", responseData.status,
+			"duration", duration,
+			"size", responseData.size)
+	}
+	return http.HandlerFunc(fn)
 }
