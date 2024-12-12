@@ -150,7 +150,7 @@ func Test_getIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pattern := "/value/{kind}/{name}"
+			pattern := "/"
 			r := chi.NewRouter()
 			store := storage.NewMemoryStorage()
 			r.Use(middleware.WithValue("store", store))
