@@ -34,7 +34,7 @@ func PollMetrics(m *Metrics, interval time.Duration) {
 }
 
 // ReportMetrics gets metrics and run postMetric function
-func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout time.Duration, oldApi bool) {
+func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout time.Duration, oldAPI bool) {
 	for {
 		// skip if function start before polling
 		if m.Counter.PollCount == 0 {
@@ -70,7 +70,7 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		for _, metric := range allMetrics {
-			if oldApi {
+			if oldAPI {
 				go postMetric(ctx, metric, address, ch, chErr)
 			} else {
 				postMetricV2(ctx, metric, address, ch, chErr)

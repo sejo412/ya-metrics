@@ -171,10 +171,12 @@ func getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	metric, err := app.ParsePostRequestJSON(buf.Bytes())
 	if err != nil {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
 	}
 	resp, err := app.GetMetricJSON(store, metric.MType, metric.ID)
 	if err != nil {
-		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		http.Error(w, models.ErrHTTPNotFound.Error(), http.StatusNotFound)
+		return
 	}
 	w.Header().Set(models.HTTPHeaderContentType, "application/json")
 	w.WriteHeader(http.StatusOK)

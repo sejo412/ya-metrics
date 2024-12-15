@@ -106,10 +106,10 @@ func UpdateMetricFromJSON(st Storage, req []byte) ([]byte, error) {
 		return nil, models.ErrNotSupported
 	}
 
-	if err = CheckMetricKind(m); err != nil {
+	if err := CheckMetricKind(m); err != nil {
 		return nil, err
 	}
-	if err = st.AddOrUpdate(m); err != nil {
+	if err := st.AddOrUpdate(m); err != nil {
 		return nil, err
 	}
 	return GetMetricJSON(st, metric.MType, metric.ID)
@@ -143,7 +143,7 @@ func GetMetricJSON(st Storage, kind, name string) ([]byte, error) {
 		}
 		m.Delta = &v
 	}
-	return json.Marshal(metric)
+	return json.Marshal(m)
 }
 
 // ParsePostRequestJSON converts incoming json to MetricV2 type

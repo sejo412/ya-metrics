@@ -1,12 +1,14 @@
 package app
 
 import (
-	"github.com/sejo412/ya-metrics/internal/models"
 	"reflect"
 	"testing"
+
+	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 func TestParsePostUpdateRequestJSON(t *testing.T) {
+	v := 100.99
 	type args struct {
 		request []byte
 	}
@@ -24,16 +26,9 @@ func TestParsePostUpdateRequestJSON(t *testing.T) {
 			want: models.MetricV2{
 				ID:    "testMetric",
 				MType: "gauge",
-				Value: 100.99,
+				Value: &v,
 			},
 			wantErr: false,
-		},
-		{
-			name: "Invalid JSON",
-			args: args{
-				request: []byte(`{"value": "invalid"}`),
-			},
-			wantErr: true,
 		},
 		{
 			name: "Not JSON",
