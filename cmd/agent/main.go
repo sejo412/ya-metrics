@@ -22,6 +22,7 @@ func run() error {
 	pflag.StringVarP(&cfg.Address, "address", "a", DefaultServerAddress, "addressFlag to connect to")
 	pflag.IntVarP(&cfg.ReportInterval, "reportInterval", "r", DefaultReportInterval, "report interval (in seconds)")
 	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", DefaultPollInterval, "poll interval (in seconds)")
+	pflag.BoolVarP(&cfg.UseOldApi, "oldApi", "o", DefaultUseOldApi, "use old api (deprecated)")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
@@ -37,7 +38,7 @@ func run() error {
 	wg.Add(1)
 	go app.PollMetrics(m, cfg.RealPollInterval)
 	wg.Add(1)
-	go app.ReportMetrics(m, r, fmt.Sprintf("%s://%s", ServerScheme, cfg.Address), cfg.RealReportInterval, ContextTimeout)
+	go app.ReportMetrics(m, r, fmt.Sprintf("%s://%s", ServerScheme, cfg.Address), cfg.RealReportInterval, ContextTimeout, cfg.UseOldApi)
 	wg.Wait()
 	wg.Done()
 	return nil

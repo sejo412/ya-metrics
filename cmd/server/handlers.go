@@ -120,6 +120,7 @@ func WithLogging(h http.Handler) http.Handler {
 			"duration", duration,
 			"size", responseData.size)
 	}
+
 	return http.HandlerFunc(fn)
 }
 
@@ -173,7 +174,7 @@ func getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := app.GetMetricJSON(store, metric.MType, metric.ID)
 	if err != nil {
-		http.Error(w, models.ErrHTTPInternalServerError.Error(), http.StatusInternalServerError)
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 	}
 	w.Header().Set(models.HTTPHeaderContentType, "application/json")
 	w.WriteHeader(http.StatusOK)

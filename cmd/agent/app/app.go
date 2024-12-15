@@ -1,19 +1,24 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
 	"net/http"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 const maxRand = 10000
+const baseInt = 10
 
 // PollMetrics collects runtime metrics in infinite loop
 func PollMetrics(m *Metrics, interval time.Duration) {
@@ -29,7 +34,7 @@ func PollMetrics(m *Metrics, interval time.Duration) {
 }
 
 // ReportMetrics gets metrics and run postMetric function
-func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout time.Duration) {
+func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout time.Duration, oldApi bool) {
 	for {
 		// skip if function start before polling
 		if m.Counter.PollCount == 0 {
@@ -65,7 +70,11 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		for _, metric := range allMetrics {
-			go postMetric(ctx, metric, address, ch, chErr)
+			if oldApi {
+				go postMetric(ctx, metric, address, ch, chErr)
+			} else {
+				postMetricV2(ctx, metric, address, ch, chErr)
+			}
 			select {
 			case <-ctx.Done():
 				log.Printf("Context canceled: %v", ctx.Err())
@@ -96,4 +105,51 @@ func postMetric(ctx context.Context, metric, address string, ch chan string, chE
 	}
 	defer resp.Body.Close()
 	ch <- fmt.Sprintf("Sent %s: %d", metric, resp.StatusCode)
+}
+
+func postMetricV2(ctx context.Context, metric, address string, ch chan string, chErr chan error) {
+	splitedMetric := strings.Split(metric, "/")
+	m := models.MetricV2{
+		ID:    splitedMetric[2],
+		MType: splitedMetric[1],
+	}
+	switch m.MType {
+	case "gauge":
+		v, err := strconv.ParseFloat(splitedMetric[3], 64)
+		if err != nil {
+			chErr <- err
+			return
+		}
+		m.Value = &v
+	case "counter":
+		v, err := strconv.ParseInt(splitedMetric[3], baseInt, 64)
+		if err != nil {
+			chErr <- err
+			return
+		}
+		m.Delta = &v
+	default:
+		chErr <- fmt.Errorf("unknown metric type: %s", m.MType)
+	}
+
+	body, err := json.Marshal(m)
+	if err != nil {
+		chErr <- err
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
+		bytes.NewBuffer(body))
+	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	if err != nil {
+		chErr <- err
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		chErr <- err
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	ch <- fmt.Sprintf("Sent %s: %d", string(body), resp.StatusCode)
 }
