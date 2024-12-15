@@ -17,3 +17,7 @@ tests:
 .PHONY: statictest
 statictest:
 	go vet -vettool=$(which statictest) ./...
+
+.PHONY: lint
+lint:
+	task lint

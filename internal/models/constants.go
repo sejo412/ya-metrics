@@ -9,3 +9,8 @@ const (
 	MetricNamePollCount   string = "PollCount"
 	MetricNameRandomValue string = "RandomValue"
 )
+
+const (
+	HTTPHeaderContentTypeApplicationJSON string = "application/json"
+	HTTPHeaderContentType                string = "Content-Type"
+)
