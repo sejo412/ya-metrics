@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"html/template"
 	"io"
 	"log"
@@ -65,11 +67,11 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	store := r.Context().Value("store").(app.Storage)
 	value, err := app.GetMetricValue(store, name)
-	switch err {
-	case models.ErrHTTPNotFound:
+	switch {
+	case errors.Is(err, models.ErrHTTPNotFound):
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
-	case models.ErrHTTPInternalServerError:
+	case errors.Is(err, models.ErrHTTPInternalServerError):
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Printf("%v: get value %s", err, name)
 		return
@@ -119,4 +121,65 @@ func WithLogging(h http.Handler) http.Handler {
 			"size", responseData.size)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+	defer func() {
+		_ = r.Body.Close()
+	}()
+	store := r.Context().Value("store").(app.Storage)
+	resp, err := app.UpdateMetricFromJSON(store, buf.Bytes())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(resp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func getMetricJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+	defer func() {
+		_ = r.Body.Close()
+	}()
+	store := r.Context().Value("store").(app.Storage)
+	metric, err := app.ParsePostRequestJSON(buf.Bytes())
+	if err != nil {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+	}
+	resp, err := app.GetMetricJSON(store, metric.MType, metric.ID)
+	if err != nil {
+		http.Error(w, models.ErrHTTPInternalServerError.Error(), http.StatusInternalServerError)
+	}
+	w.Header().Set(models.HTTPHeaderContentType, "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(resp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

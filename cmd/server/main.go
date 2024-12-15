@@ -56,8 +56,10 @@ func run() error {
 		}
 		postUpdate(w, r)
 	})
+	r.Post("/"+models.MetricPathPostPrefix+"/", postUpdateJSON)
 	r.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", getValue)
 	r.Get("/", getIndex)
+	r.Post("/"+models.MetricPathGetPrefix+"/", getMetricJSON)
 	sugar.Infow("server starting", "address", cfg.Address)
 	server := &http.Server{
 		Addr:              cfg.Address,

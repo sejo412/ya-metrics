@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ func Test_handleUpdate(t *testing.T) {
 	tests := []struct {
 		name    string
 		request string
+		header  http.Header
 		want    want
 	}{
 		{
@@ -99,7 +101,8 @@ func Test_handleUpdate(t *testing.T) {
 				code:     http.StatusNotFound,
 				response: notFound,
 			},
-		}}
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -121,7 +124,7 @@ func Test_handleUpdate(t *testing.T) {
 				}))
 			ts := httptest.NewServer(r)
 			defer ts.Close()
-			resp, body := testRequest(t, ts, http.MethodPost, tt.request, nil)
+			resp, body := testRequest(t, ts, http.MethodPost, tt.request, nil, nil)
 			defer resp.Body.Close()
 			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
 			assert.Equal(t, tt.want.response, body, tt.name)
@@ -157,16 +160,17 @@ func Test_getIndex(t *testing.T) {
 			r.Handle(http.MethodGet+" "+pattern, http.HandlerFunc(getIndex))
 			ts := httptest.NewServer(r)
 			defer ts.Close()
-			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil)
+			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
 			defer resp.Body.Close()
 			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
 			assert.Contains(t, body, tt.want.response, tt.name)
 		})
 	}
 }
-func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header, body io.Reader) (*http.Response, string) {
 	ctx := context.TODO()
 	req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
+	req.Header = header
 	if err != nil {
 		t.Fatal(err)
 		return nil, ""
@@ -186,4 +190,58 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io
 	defer resp.Body.Close()
 	result, _ := strings.CutSuffix(string(respBody), "\n")
 	return resp, result
+}
+
+func Test_postUpdateJSON(t *testing.T) {
+	type want struct {
+		code     int
+		response string
+	}
+	tests := []struct {
+		name    string
+		request string
+		header  http.Header
+		body    io.Reader
+		want    want
+	}{
+		{
+			name:    "not json",
+			request: "/update/",
+			header: http.Header{
+				"Content-Type": []string{"text/plain"},
+			},
+			body: bytes.NewBuffer([]byte(`foo=bar`)),
+			want: want{
+				code:     http.StatusBadRequest,
+				response: m.ErrHTTPBadRequest.Error(),
+			},
+		},
+		{
+			name:    "invalid json",
+			request: "/update/",
+			header: http.Header{
+				"Content-Type": []string{"application/json"},
+			},
+			body: bytes.NewBuffer([]byte(`{"value": "foo""}`)),
+			want: want{
+				code:     http.StatusBadRequest,
+				response: m.ErrHTTPBadRequest.Error(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pattern := "/update/"
+			r := chi.NewRouter()
+			store := storage.NewMemoryStorage()
+			r.Use(middleware.WithValue("store", store))
+			r.Handle(http.MethodPost+" "+pattern, http.HandlerFunc(postUpdateJSON))
+			ts := httptest.NewServer(r)
+			defer ts.Close()
+			resp, body := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)
+			defer resp.Body.Close()
+			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
+			assert.Equal(t, tt.want.response, body, tt.name)
+		})
+	}
 }

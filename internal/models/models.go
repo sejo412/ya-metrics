@@ -8,6 +8,13 @@ type Metric struct {
 	Value string
 }
 
+type MetricV2 struct {
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+}
+
 func RuntimeMetricsMap(r *runtime.MemStats) map[string]interface{} {
 	return map[string]interface{}{
 		"Alloc":         r.Alloc,
