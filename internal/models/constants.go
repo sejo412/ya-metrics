@@ -11,6 +11,10 @@ const (
 )
 
 const (
-	HTTPHeaderContentTypeApplicationJSON string = "application/json"
-	HTTPHeaderContentType                string = "Content-Type"
+	HTTPHeaderContentTypeApplicationJSON     string = "application/json"
+	HTTPHeaderContentTypeApplicationTextHTML string = "text/html"
+	HTTPHeaderEncodingGzip                   string = "gzip"
+	HTTPHeaderContentType                    string = "Content-Type"
+	HTTPHeaderContentEncoding                string = "Content-Encoding"
+	HTTPHeaderAcceptEncoding                 string = "Accept-Encoding"
 )

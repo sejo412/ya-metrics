@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sejo412/ya-metrics/internal/utils"
+
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
@@ -138,13 +140,20 @@ func postMetricV2(ctx context.Context, metric, address string, ch chan string, c
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
-		bytes.NewBuffer(body))
-	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	gziped, err := utils.Compress(body)
 	if err != nil {
 		chErr <- err
 		return
 	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
+		bytes.NewBuffer(gziped))
+	if err != nil {
+		chErr <- err
+		return
+	}
+	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		chErr <- err

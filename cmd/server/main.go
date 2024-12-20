@@ -44,7 +44,7 @@ func run() error {
 	store := storage.NewMemoryStorage()
 	r.Use(WithLogging)
 	r.Use(middleware.WithValue("store", store))
-	// r.Use(middleware.CleanPath) <- clean path truncates last "/"
+	r.Use(gzipHandle)
 	r.Post("/"+models.MetricPathPostPrefix+"/{kind}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
 		metric := models.Metric{
 			Kind:  chi.URLParam(r, "kind"),

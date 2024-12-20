@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sejo412/ya-metrics/internal/utils"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/sejo412/ya-metrics/cmd/server/app"
 	"github.com/sejo412/ya-metrics/internal/models"
@@ -48,6 +50,33 @@ func (r *loggingResponseWriter) Write(data []byte) (int, error) {
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode
+}
+
+func gzipHandle(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// POST and gzip
+		if r.Method == http.MethodPost &&
+			r.Header.Get(models.HTTPHeaderContentEncoding) == models.HTTPHeaderEncodingGzip {
+			buf := new(bytes.Buffer)
+			_, err := buf.ReadFrom(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer func() {
+				_ = r.Body.Close()
+			}()
+			data, err := utils.Decompress(buf.Bytes())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(data))
+			next.ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func postUpdate(w http.ResponseWriter, r *http.Request) {
@@ -90,10 +119,25 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		return
 	}
-	err = tmpl.Execute(w, metrics)
+
+	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationTextHTML)
+	buf := new(bytes.Buffer)
+	err = tmpl.Execute(buf, metrics)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		log.Print(err)
+		return
+	}
+	resp := buf.Bytes()
+	if r.Header.Get(models.HTTPHeaderAcceptEncoding) == models.HTTPHeaderEncodingGzip {
+		resp, err = utils.Compress(resp)
+		if err == nil {
+			w.Header().Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+		}
+	}
+	_, err = w.Write(resp)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }
@@ -120,7 +164,6 @@ func WithLogging(h http.Handler) http.Handler {
 			"duration", duration,
 			"size", responseData.size)
 	}
-
 	return http.HandlerFunc(fn)
 }
 
@@ -138,8 +181,11 @@ func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		_ = r.Body.Close()
 	}()
+
+	data := buf.Bytes()
+
 	store := r.Context().Value("store").(app.Storage)
-	resp, err := app.UpdateMetricFromJSON(store, buf.Bytes())
+	resp, err := app.UpdateMetricFromJSON(store, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -177,6 +223,12 @@ func getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, models.ErrHTTPNotFound.Error(), http.StatusNotFound)
 		return
+	}
+	if r.Header.Get(models.HTTPHeaderAcceptEncoding) == models.HTTPHeaderEncodingGzip {
+		resp, err = utils.Compress(resp)
+		if err == nil {
+			w.Header().Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+		}
 	}
 	w.Header().Set(models.HTTPHeaderContentType, "application/json")
 	w.WriteHeader(http.StatusOK)
