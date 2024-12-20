@@ -2,8 +2,9 @@ package storage
 
 import (
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"strconv"
+
+	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 type MemoryStorage struct {
@@ -34,7 +35,8 @@ func (s *MemoryStorage) AddOrUpdate(metric models.Metric) error {
 	return nil
 }
 
-func (s *MemoryStorage) Get(name string) (models.Metric, error) {
+func (s *MemoryStorage) Get(kind, name string) (models.Metric, error) {
+	// kind not used in this implementation, because name is "primary key" for MemoryStorage
 	if metric, ok := s.metrics[name]; ok {
 		return metric, nil
 	}
