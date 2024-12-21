@@ -109,7 +109,9 @@ func Test_handleUpdate(t *testing.T) {
 			pattern := "/update/{kind}/{name}/{value}"
 			r := chi.NewRouter()
 			store := storage.NewMemoryStorage()
+			cfg := Config{}
 			r.Use(middleware.WithValue("store", store))
+			r.Use(middleware.WithValue("config", cfg))
 			r.Handle(http.MethodPost+" "+pattern, http.HandlerFunc(
 				func(w http.ResponseWriter, r *http.Request) {
 					metric := m.Metric{
