@@ -90,6 +90,12 @@ func postUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Printf("%v: add or update metric %s", err, metric.Name)
 	}
+	cfg := r.Context().Value("config").(Config)
+	if cfg.StoreInterval == 0 {
+		if err := store.Flush(cfg.FileStoragePath); err != nil {
+			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
+		}
+	}
 }
 
 func getValue(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +195,12 @@ func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	cfg := r.Context().Value("config").(Config)
+	if cfg.StoreInterval == 0 {
+		if err := store.Flush(cfg.FileStoragePath); err != nil {
+			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
+		}
 	}
 	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	w.WriteHeader(http.StatusOK)
