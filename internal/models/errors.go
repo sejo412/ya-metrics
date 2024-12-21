@@ -1,6 +1,8 @@
 package models
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	ErrHTTPBadRequest          = errors.New("bad request")
@@ -9,6 +11,7 @@ var (
 	ErrNotFloat                = errors.New("not float")
 	ErrNotInteger              = errors.New("not integer")
 	ErrNotSupported            = errors.New("not supported")
+	ErrUnmarshalling           = errors.New("error unmarshalling")
 )
 
 const (
@@ -16,4 +19,5 @@ const (
 	MessageNotFloat     string = "not a float"
 	MessageNotInteger   string = "not a integer"
 	MessageNotFound     string = "not found"
+	MessageBadRequest   string = "bad request"
 )
