@@ -49,13 +49,15 @@ func run() error {
 	if cfg.Restore {
 		f, err := os.Open(cfg.FileStoragePath)
 		if err != nil {
-			return fmt.Errorf("error open file %s: %w", cfg.FileStoragePath, err)
+			log.Errorw("error open file",
+				"file", cfg.FileStoragePath)
 		}
 		defer func() {
 			_ = f.Close()
 		}()
 		if err = store.Load(f); err != nil {
-			log.Error("failed to restore metrics: %v", err)
+			log.Errorw("error load file",
+				"file", cfg.FileStoragePath)
 		}
 	}
 

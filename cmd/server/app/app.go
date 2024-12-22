@@ -53,17 +53,18 @@ func GetAllMetricValues(st Storage) map[string]string {
 }
 
 func FlushingMetrics(st Storage, file string, interval int) {
-	f, err := os.Create(file)
-	defer func() {
-		_ = f.Close()
-	}()
-	if err != nil {
-		log.Printf("error create file %s: %v\n", file, err)
-		return
-	}
 	for {
+		f, err := os.Create(file)
+		if err != nil {
+			log.Printf("error create file %s: %v\n", file, err)
+			return
+		}
 		if err = st.Flush(f); err != nil {
 			log.Printf("Error flushing metrics: %s", err.Error())
+		}
+		err = f.Close()
+		if err != nil {
+			log.Printf("error closing file %s: %v\n", file, err)
 		}
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
