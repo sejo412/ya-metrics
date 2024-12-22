@@ -1,8 +1,10 @@
 package app
 
 import (
-	"reflect"
+	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/sejo412/ya-metrics/internal/models"
 )
@@ -16,7 +18,7 @@ func TestParsePostUpdateRequestJSON(t *testing.T) {
 		name    string
 		args    args
 		want    models.MetricV2
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "Valid JSON",
@@ -28,26 +30,21 @@ func TestParsePostUpdateRequestJSON(t *testing.T) {
 				MType: "gauge",
 				Value: &v,
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Not JSON",
 			args: args{
 				request: []byte(`preved`),
 			},
-			wantErr: true,
+			wantErr: errors.New(models.MessageBadRequest),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParsePostRequestJSON(tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParsePostRequestJSON() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParsePostRequestJSON() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

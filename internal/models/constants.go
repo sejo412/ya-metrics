@@ -18,3 +18,8 @@ const (
 	HTTPHeaderContentEncoding                string = "Content-Encoding"
 	HTTPHeaderAcceptEncoding                 string = "Accept-Encoding"
 )
+
+const (
+	base10        int = 10
+	metricBitSize int = 64
+)

@@ -1,4 +1,8 @@
-package main
+package config
+
+import (
+	"github.com/sejo412/ya-metrics/internal/storage"
+)
 
 const (
 	DefaultAddress         string = ":8080"
@@ -12,4 +16,9 @@ type Config struct {
 	StoreInterval   int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	Restore         bool   `env:"RESTORE"`
+}
+
+type Options struct {
+	Config  *Config
+	Storage *storage.MemoryStorage
 }

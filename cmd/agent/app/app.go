@@ -19,8 +19,10 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
-const maxRand = 10000
-const baseInt = 10
+const (
+	maxRand = 10000
+	baseInt = 10
+)
 
 // PollMetrics collects runtime metrics in infinite loop
 func PollMetrics(m *Metrics, interval time.Duration) {

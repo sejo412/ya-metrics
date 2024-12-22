@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"bytes"
@@ -10,16 +10,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/sejo412/ya-metrics/cmd/server/app"
+	"github.com/sejo412/ya-metrics/cmd/server/config"
 	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
+var cfg = config.Config{
+	Address:         ":8080",
+	StoreInterval:   30,
+	FileStoragePath: "/tmp/testing_metrics.json",
+	Restore:         true,
+}
+
+const notFound = "404 page not found"
+
 func Test_handleUpdate(t *testing.T) {
-	notFound := "404 page not found"
 	type want struct {
 		code     int
 		response string
@@ -87,11 +94,11 @@ func Test_handleUpdate(t *testing.T) {
 			},
 		},
 		{
-			name:    "index not found",
+			name:    "POST 405",
 			request: "",
 			want: want{
-				code:     http.StatusNotFound,
-				response: notFound,
+				code:     http.StatusMethodNotAllowed,
+				response: "",
 			},
 		},
 		{
@@ -106,24 +113,18 @@ func Test_handleUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pattern := "/update/{kind}/{name}/{value}"
-			r := chi.NewRouter()
+			logger, _ := zap.NewDevelopment()
+			defer func() {
+				_ = logger.Sync()
+			}()
+			sugar := logger.Sugar()
+			lm := NewLoggerMiddleware(sugar)
 			store := storage.NewMemoryStorage()
-			cfg := Config{}
-			r.Use(middleware.WithValue("store", store))
-			r.Use(middleware.WithValue("config", cfg))
-			r.Handle(http.MethodPost+" "+pattern, http.HandlerFunc(
-				func(w http.ResponseWriter, r *http.Request) {
-					metric := m.Metric{
-						Kind:  chi.URLParam(r, "kind"),
-						Value: chi.URLParam(r, "value"),
-					}
-					if err := app.CheckMetricKind(metric); err != nil {
-						http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
-						return
-					}
-					postUpdate(w, r)
-				}))
+
+			r := NewRouterWithConfig(&config.Options{
+				Config:  &cfg,
+				Storage: store,
+			}, lm)
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodPost, tt.request, nil, nil)
@@ -155,11 +156,18 @@ func Test_getIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pattern := "/"
-			r := chi.NewRouter()
+			logger, _ := zap.NewDevelopment()
+			defer func() {
+				_ = logger.Sync()
+			}()
+			sugar := logger.Sugar()
+			lm := NewLoggerMiddleware(sugar)
 			store := storage.NewMemoryStorage()
-			r.Use(middleware.WithValue("store", store))
-			r.Handle(http.MethodGet+" "+pattern, http.HandlerFunc(getIndex))
+
+			r := NewRouterWithConfig(&config.Options{
+				Config:  &cfg,
+				Storage: store,
+			}, lm)
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
@@ -233,11 +241,19 @@ func Test_postUpdateJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pattern := "/update/"
-			r := chi.NewRouter()
+			logger, _ := zap.NewDevelopment()
+			defer func() {
+				_ = logger.Sync()
+			}()
+			sugar := logger.Sugar()
+			lm := NewLoggerMiddleware(sugar)
 			store := storage.NewMemoryStorage()
-			r.Use(middleware.WithValue("store", store))
-			r.Handle(http.MethodPost+" "+pattern, http.HandlerFunc(postUpdateJSON))
+
+			r := NewRouterWithConfig(&config.Options{
+				Config:  &cfg,
+				Storage: store,
+			}, lm)
+
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)

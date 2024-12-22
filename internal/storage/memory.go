@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io"
 	"strconv"
 
 	"github.com/sejo412/ya-metrics/internal/models"
@@ -54,21 +54,14 @@ func (s *MemoryStorage) GetAll() []models.Metric {
 	return metrics
 }
 
-func (s *MemoryStorage) Flush(file string) error {
-	f, err := os.Create(file)
-	defer func() {
-		_ = f.Close()
-	}()
-	if err != nil {
-		return fmt.Errorf("error create file %s: %w", file, err)
-	}
+func (s *MemoryStorage) Flush(dst io.Writer) error {
 	metrics := s.GetAll()
 	for _, metric := range metrics {
-		m, err := models.ConvertMetricToV2(&metric)
+		m, err := models.ConvertV1ToV2(&metric)
 		if err != nil {
 			return err
 		}
-		err = json.NewEncoder(f).Encode(m)
+		err = json.NewEncoder(dst).Encode(m)
 		if err != nil {
 			return fmt.Errorf("error encode metric %s: %w", metric, err)
 		}
@@ -76,23 +69,15 @@ func (s *MemoryStorage) Flush(file string) error {
 	return nil
 }
 
-func (s *MemoryStorage) Load(file string) error {
-	f, err := os.Open(file)
-	if err != nil {
-		return fmt.Errorf("error open file %s: %w", file, err)
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	scanner := bufio.NewScanner(f)
+func (s *MemoryStorage) Load(src io.Reader) error {
+	scanner := bufio.NewScanner(src)
 	for scanner.Scan() {
 		m := models.MetricV2{}
-		err = json.Unmarshal(scanner.Bytes(), &m)
+		err := json.Unmarshal(scanner.Bytes(), &m)
 		if err != nil {
 			return fmt.Errorf("error unmarshal metric %s: %w", scanner.Text(), err)
 		}
-		res, err := models.ConvertV2ToMetric(&m)
+		res, err := models.ConvertV2ToV1(&m)
 		if err != nil {
 			return err
 		}
