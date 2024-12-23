@@ -2,15 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/caarlos0/env/v6"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/cmd/server/app"
-	"github.com/sejo412/ya-metrics/internal/models"
+	"github.com/sejo412/ya-metrics/cmd/server/config"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/spf13/pflag"
-	"log"
-	"net/http"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -20,29 +19,56 @@ func main() {
 }
 
 func run() error {
-	var cfg Config
-	pflag.StringVarP(&cfg.Address, "address", "a", DefaultAddress, "Listen address")
+	// startup config init
+	var cfg config.Config
+	pflag.StringVarP(&cfg.Address, "address", "a", config.DefaultAddress, "Listen address")
+	pflag.IntVarP(&cfg.StoreInterval, "storeInterval", "i", config.DefaultStoreInterval, "Store interval")
+	pflag.StringVarP(&cfg.FileStoragePath, "fileStoragePath", "f", config.DefaultFileStoragePath, "File storage path")
+	pflag.BoolVarP(&cfg.Restore, "restore", "r", config.DefaultRestore, "Restore metrics")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("parse config: %w", err)
 	}
-	r := chi.NewRouter()
+
+	// logger init
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		_ = logger.Sync()
+	}()
+	sugar := logger.Sugar()
+	lm := app.NewLoggerMiddleware(sugar)
+	log := lm.Logger
+
 	store := storage.NewMemoryStorage()
-	r.Use(middleware.WithValue("store", store))
-	r.Use(middleware.CleanPath)
-	r.Post("/"+models.MetricPathPostPrefix+"/{kind}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
-		metric := models.Metric{
-			Kind:  chi.URLParam(r, "kind"),
-			Value: chi.URLParam(r, "value"),
+
+	// restore metrics
+	if cfg.Restore {
+		f, err := os.Open(cfg.FileStoragePath)
+		if err != nil {
+			log.Errorw("error open file",
+				"file", cfg.FileStoragePath)
 		}
-		if err = app.CheckMetricKind(metric); err != nil {
-			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
-			return
+		defer func() {
+			_ = f.Close()
+		}()
+		if err = store.Load(f); err != nil {
+			log.Errorw("error load file",
+				"file", cfg.FileStoragePath)
 		}
-		postUpdate(w, r)
-	})
-	r.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", getValue)
-	r.Get("/", getIndex)
-	return http.ListenAndServe(cfg.Address, r)
+	}
+
+	// start flushing metrics on timer
+	if cfg.StoreInterval > 0 {
+		go app.FlushingMetrics(store, cfg.FileStoragePath, cfg.StoreInterval)
+	}
+
+	return app.StartServer(&config.Options{
+		Config:  &cfg,
+		Storage: store,
+	},
+		lm)
 }

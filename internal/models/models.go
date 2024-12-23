@@ -1,12 +1,9 @@
 package models
 
-import "runtime"
-
-type Metric struct {
-	Kind  string
-	Name  string
-	Value string
-}
+import (
+	"runtime"
+	"strconv"
+)
 
 func RuntimeMetricsMap(r *runtime.MemStats) map[string]interface{} {
 	return map[string]interface{}{
@@ -38,4 +35,40 @@ func RuntimeMetricsMap(r *runtime.MemStats) map[string]interface{} {
 		"NumForcedGC":   r.NumForcedGC,
 		"GCCPUFraction": r.GCCPUFraction,
 	}
+}
+
+func ConvertV1ToV2(m *Metric) (*MetricV2, error) {
+	res := &MetricV2{
+		ID:    m.Name,
+		MType: m.Kind,
+	}
+	switch m.Kind {
+	case "counter":
+		v, err := strconv.ParseInt(m.Value, base10, metricBitSize)
+		if err != nil {
+			return nil, ErrNotInteger
+		}
+		res.Delta = &v
+	case "gauge":
+		v, err := strconv.ParseFloat(m.Value, metricBitSize)
+		if err != nil {
+			return nil, ErrNotFloat
+		}
+		res.Value = &v
+	}
+	return res, nil
+}
+
+func ConvertV2ToV1(m *MetricV2) (*Metric, error) {
+	metric := &Metric{
+		Kind: m.MType,
+		Name: m.ID,
+	}
+	switch m.MType {
+	case "counter":
+		metric.Value = strconv.FormatInt(*m.Delta, base10)
+	case "gauge":
+		metric.Value = strconv.FormatFloat(*m.Value, 'f', -1, metricBitSize)
+	}
+	return metric, nil
 }

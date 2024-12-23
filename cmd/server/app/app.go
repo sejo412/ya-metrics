@@ -1,48 +1,50 @@
 package app
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"time"
+
 	"github.com/sejo412/ya-metrics/internal/models"
-	"math"
-	"strconv"
 )
 
 type Storage interface {
 	AddOrUpdate(models.Metric) error
-	Get(string) (models.Metric, error)
+	Get(kind string, name string) (models.Metric, error)
 	GetAll() []models.Metric
+	Flush(dst io.Writer) error
+	Load(src io.Reader) error
 }
 
 // CheckMetricKind returns error if metric value does not match kind
 func CheckMetricKind(metric models.Metric) error {
-	_, err := getMetricValueString(metric)
-	switch err {
-	case models.ErrNotFloat:
+	_, err := models.GetMetricValueString(metric)
+	switch {
+	case errors.Is(err, models.ErrNotFloat):
 		return fmt.Errorf("%w: %s", models.ErrHTTPBadRequest, models.MessageNotFloat)
-	case models.ErrNotInteger:
+	case errors.Is(err, models.ErrNotInteger):
 		return fmt.Errorf("%w: %s", models.ErrHTTPBadRequest, models.MessageNotInteger)
-	case models.ErrNotSupported:
+	case errors.Is(err, models.ErrNotSupported):
 		return fmt.Errorf("%w: %s", models.ErrHTTPBadRequest, models.MessageNotSupported)
 	}
 	return nil
 }
 
-func UpdateMetric(st Storage, metric models.Metric) error {
-	return st.AddOrUpdate(metric)
-}
-
 func GetMetricValue(st Storage, name string) (string, error) {
-	metric, err := st.Get(name)
+	metric, err := st.Get("", name)
 	if err != nil {
 		return "", err
 	}
-	return getMetricValueString(metric)
+	return models.GetMetricValueString(metric)
 }
 
 func GetAllMetricValues(st Storage) map[string]string {
 	result := make(map[string]string)
 	for _, metric := range st.GetAll() {
-		value, err := getMetricValueString(metric)
+		value, err := models.GetMetricValueString(metric)
 		if err == nil {
 			result[metric.Name] = value
 		}
@@ -50,28 +52,20 @@ func GetAllMetricValues(st Storage) map[string]string {
 	return result
 }
 
-// RoundFloatToString round float and convert it to string (trims trailing zeroes)
-func roundFloatToString(val float64) string {
-	ratio := math.Pow(10, float64(3))
-	res := math.Round(val*ratio) / ratio
-	return strconv.FormatFloat(res, 'f', -1, 64)
-}
-
-func getMetricValueString(metric models.Metric) (string, error) {
-	switch metric.Kind {
-	case models.MetricKindGauge:
-		v, err := strconv.ParseFloat(metric.Value, 64)
+func FlushingMetrics(st Storage, file string, interval int) {
+	for {
+		f, err := os.Create(file)
 		if err != nil {
-			return "", models.ErrNotFloat
+			log.Printf("error create file %s: %v\n", file, err)
+			return
 		}
-		return roundFloatToString(v), nil
-	case models.MetricKindCounter:
-		v, err := strconv.ParseInt(metric.Value, 10, 64)
+		if err = st.Flush(f); err != nil {
+			log.Printf("Error flushing metrics: %s", err.Error())
+		}
+		err = f.Close()
 		if err != nil {
-			return "", models.ErrNotInteger
+			log.Printf("error closing file %s: %v\n", file, err)
 		}
-		return strconv.FormatInt(v, 10), nil
-	default:
-		return "", models.ErrNotSupported
+		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }

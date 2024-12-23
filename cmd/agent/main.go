@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/caarlos0/env/v6"
-	"github.com/sejo412/ya-metrics/cmd/agent/app"
-	"github.com/spf13/pflag"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/caarlos0/env/v6"
+	"github.com/sejo412/ya-metrics/cmd/agent/app"
+	"github.com/spf13/pflag"
 )
 
 func main() {
@@ -21,6 +22,7 @@ func run() error {
 	pflag.StringVarP(&cfg.Address, "address", "a", DefaultServerAddress, "addressFlag to connect to")
 	pflag.IntVarP(&cfg.ReportInterval, "reportInterval", "r", DefaultReportInterval, "report interval (in seconds)")
 	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", DefaultPollInterval, "poll interval (in seconds)")
+	pflag.BoolVarP(&cfg.UseOldAPI, "oldApi", "o", DefaultUseOldAPI, "use old api (deprecated)")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
@@ -36,7 +38,7 @@ func run() error {
 	wg.Add(1)
 	go app.PollMetrics(m, cfg.RealPollInterval)
 	wg.Add(1)
-	go app.ReportMetrics(m, r, fmt.Sprintf("%s://%s", ServerScheme, cfg.Address), cfg.RealReportInterval, ContextTimeout)
+	go app.ReportMetrics(m, r, fmt.Sprintf("%s://%s", ServerScheme, cfg.Address), cfg.RealReportInterval, ContextTimeout, cfg.UseOldAPI)
 	wg.Wait()
 	wg.Done()
 	return nil

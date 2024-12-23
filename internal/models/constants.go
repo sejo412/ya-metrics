@@ -9,3 +9,17 @@ const (
 	MetricNamePollCount   string = "PollCount"
 	MetricNameRandomValue string = "RandomValue"
 )
+
+const (
+	HTTPHeaderContentTypeApplicationJSON     string = "application/json"
+	HTTPHeaderContentTypeApplicationTextHTML string = "text/html"
+	HTTPHeaderEncodingGzip                   string = "gzip"
+	HTTPHeaderContentType                    string = "Content-Type"
+	HTTPHeaderContentEncoding                string = "Content-Encoding"
+	HTTPHeaderAcceptEncoding                 string = "Accept-Encoding"
+)
+
+const (
+	base10        int = 10
+	metricBitSize int = 64
+)

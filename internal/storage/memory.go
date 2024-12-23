@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
-	"github.com/sejo412/ya-metrics/internal/models"
+	"io"
 	"strconv"
+
+	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 type MemoryStorage struct {
@@ -34,7 +38,8 @@ func (s *MemoryStorage) AddOrUpdate(metric models.Metric) error {
 	return nil
 }
 
-func (s *MemoryStorage) Get(name string) (models.Metric, error) {
+func (s *MemoryStorage) Get(kind, name string) (models.Metric, error) {
+	// kind not used in this implementation, because name is "primary key" for MemoryStorage
 	if metric, ok := s.metrics[name]; ok {
 		return metric, nil
 	}
@@ -47,4 +52,38 @@ func (s *MemoryStorage) GetAll() []models.Metric {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+func (s *MemoryStorage) Flush(dst io.Writer) error {
+	metrics := s.GetAll()
+	for _, metric := range metrics {
+		m, err := models.ConvertV1ToV2(&metric)
+		if err != nil {
+			return err
+		}
+		err = json.NewEncoder(dst).Encode(m)
+		if err != nil {
+			return fmt.Errorf("error encode metric %s: %w", metric, err)
+		}
+	}
+	return nil
+}
+
+func (s *MemoryStorage) Load(src io.Reader) error {
+	scanner := bufio.NewScanner(src)
+	for scanner.Scan() {
+		m := models.MetricV2{}
+		err := json.Unmarshal(scanner.Bytes(), &m)
+		if err != nil {
+			return fmt.Errorf("error unmarshal metric %s: %w", scanner.Text(), err)
+		}
+		res, err := models.ConvertV2ToV1(&m)
+		if err != nil {
+			return err
+		}
+		if err = s.AddOrUpdate(*res); err != nil {
+			return fmt.Errorf("error add or update metric %s: %w", res.Name, err)
+		}
+	}
+	return nil
 }
