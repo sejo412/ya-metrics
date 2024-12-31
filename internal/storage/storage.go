@@ -46,7 +46,6 @@ func ParseDSN(dsn string) (opts Options, err error) {
 		}, nil
 	case "postgresql", "postgres":
 		port = defaultPostgresPort
-		break
 	default:
 		return opts, fmt.Errorf("unsupported database scheme: %s", u.Scheme)
 	}

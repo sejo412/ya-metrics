@@ -119,8 +119,7 @@ func Test_handleUpdate(t *testing.T) {
 			}()
 			sugar := logger.Sugar()
 			lm := NewLoggerMiddleware(sugar)
-			var store config.Storage
-			store = storage.NewMemoryStorage()
+			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
 				Config:  cfg,
@@ -163,8 +162,7 @@ func Test_getIndex(t *testing.T) {
 			}()
 			sugar := logger.Sugar()
 			lm := NewLoggerMiddleware(sugar)
-			var store config.Storage
-			store = storage.NewMemoryStorage()
+			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
 				Config:  cfg,
@@ -250,8 +248,7 @@ func Test_postUpdateJSON(t *testing.T) {
 			}()
 			sugar := logger.Sugar()
 			lm := NewLoggerMiddleware(sugar)
-			var store config.Storage
-			store = storage.NewMemoryStorage()
+			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
 				Config:  cfg,

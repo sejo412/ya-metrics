@@ -23,7 +23,7 @@ func (p *PostgresStorage) AddOrUpdate(metric models.Metric) error {
 	return nil
 }
 
-func (p *PostgresStorage) Get(kind string, name string) (models.Metric, error) {
+func (p *PostgresStorage) Get(kind, name string) (models.Metric, error) {
 	// TODO implement me
 	return models.Metric{}, nil
 }

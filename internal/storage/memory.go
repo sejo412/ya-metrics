@@ -25,7 +25,6 @@ func (s *MemoryStorage) Open(opts Options) error {
 }
 
 func (s *MemoryStorage) Close() {
-	return
 }
 
 func (s *MemoryStorage) Ping(ctx context.Context) error {
