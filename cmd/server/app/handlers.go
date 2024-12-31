@@ -252,8 +252,10 @@ func pingStorage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	if err := store.Ping(ctx); err != nil {
 		http.Error(w, models.ErrHTTPInternalServerError.Error(), http.StatusInternalServerError)
+		log.Print(err)
+		return
 	} else {
 		w.WriteHeader(http.StatusOK)
+		return
 	}
-	return
 }

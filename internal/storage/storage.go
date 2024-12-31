@@ -69,7 +69,7 @@ func ParseDSN(dsn string) (opts Options, err error) {
 	}
 	return Options{
 		Scheme:   u.Scheme,
-		Host:     u.Host,
+		Host:     u.Hostname(),
 		Port:     port,
 		Username: u.User.Username(),
 		Password: password,

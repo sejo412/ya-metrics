@@ -14,33 +14,33 @@ type PostgresStorage struct {
 	Client *sql.DB
 }
 
+func NewPostgresStorage() *PostgresStorage {
+	return &PostgresStorage{}
+}
+
 func (p *PostgresStorage) AddOrUpdate(metric models.Metric) error {
 	// TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (p *PostgresStorage) Get(kind string, name string) (models.Metric, error) {
 	// TODO implement me
-	panic("implement me")
+	return models.Metric{}, nil
 }
 
 func (p *PostgresStorage) GetAll() []models.Metric {
 	// TODO implement me
-	panic("implement me")
+	return []models.Metric{}
 }
 
 func (p *PostgresStorage) Flush(dst io.Writer) error {
 	// TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (p *PostgresStorage) Load(src io.Reader) error {
 	// TODO implement me
-	panic("implement me")
-}
-
-func NewPostgresStorage() *PostgresStorage {
-	return &PostgresStorage{}
+	return nil
 }
 
 func (p *PostgresStorage) Open(opts Options) error {
