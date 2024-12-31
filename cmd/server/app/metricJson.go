@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/sejo412/ya-metrics/cmd/server/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 // UpdateMetricFromJSON updates metric from incoming json
-func UpdateMetricFromJSON(st Storage, req []byte) ([]byte, error) {
+func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 	var (
 		metric models.MetricV2
 		err    error
@@ -40,7 +41,7 @@ func UpdateMetricFromJSON(st Storage, req []byte) ([]byte, error) {
 }
 
 // GetMetricJSON return JSON representation metric by name
-func GetMetricJSON(st Storage, kind, name string) ([]byte, error) {
+func GetMetricJSON(st config.Storage, kind, name string) ([]byte, error) {
 	metric, err := st.Get("", name)
 	if err != nil {
 		return nil, err

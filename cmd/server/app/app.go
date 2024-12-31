@@ -3,21 +3,13 @@ package app
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"time"
 
+	"github.com/sejo412/ya-metrics/cmd/server/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 )
-
-type Storage interface {
-	AddOrUpdate(models.Metric) error
-	Get(kind string, name string) (models.Metric, error)
-	GetAll() []models.Metric
-	Flush(dst io.Writer) error
-	Load(src io.Reader) error
-}
 
 // CheckMetricKind returns error if metric value does not match kind
 func CheckMetricKind(metric models.Metric) error {
@@ -33,7 +25,7 @@ func CheckMetricKind(metric models.Metric) error {
 	return nil
 }
 
-func GetMetricValue(st Storage, name string) (string, error) {
+func GetMetricValue(st config.Storage, name string) (string, error) {
 	metric, err := st.Get("", name)
 	if err != nil {
 		return "", err
@@ -41,7 +33,7 @@ func GetMetricValue(st Storage, name string) (string, error) {
 	return models.GetMetricValueString(metric)
 }
 
-func GetAllMetricValues(st Storage) map[string]string {
+func GetAllMetricValues(st config.Storage) map[string]string {
 	result := make(map[string]string)
 	for _, metric := range st.GetAll() {
 		value, err := models.GetMetricValueString(metric)
@@ -52,7 +44,7 @@ func GetAllMetricValues(st Storage) map[string]string {
 	return result
 }
 
-func FlushingMetrics(st Storage, file string, interval int) {
+func FlushingMetrics(st config.Storage, file string, interval int) {
 	for {
 		f, err := os.Create(file)
 		if err != nil {

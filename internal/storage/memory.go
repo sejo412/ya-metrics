@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +18,18 @@ type MemoryStorage struct {
 func NewMemoryStorage() *MemoryStorage {
 	metrics := make(map[string]models.Metric)
 	return &MemoryStorage{metrics: metrics}
+}
+
+func (s *MemoryStorage) Open(opts Options) error {
+	return nil
+}
+
+func (s *MemoryStorage) Close() {
+	return
+}
+
+func (s *MemoryStorage) Ping(ctx context.Context) error {
+	return nil
 }
 
 func (s *MemoryStorage) AddOrUpdate(metric models.Metric) error {

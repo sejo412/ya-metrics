@@ -8,6 +8,7 @@ const (
 	MetricPathGetPrefix   string = "value"
 	MetricNamePollCount   string = "PollCount"
 	MetricNameRandomValue string = "RandomValue"
+	PingPath              string = "ping"
 )
 
 const (

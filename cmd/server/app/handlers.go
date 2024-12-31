@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"html/template"
 	"io"
@@ -10,12 +11,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/sejo412/ya-metrics/cmd/server/config"
-
-	"github.com/sejo412/ya-metrics/internal/utils"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/sejo412/ya-metrics/cmd/server/config"
 	"github.com/sejo412/ya-metrics/internal/models"
+	"github.com/sejo412/ya-metrics/internal/utils"
 )
 
 var index = `<!DOCTYPE html>
@@ -66,12 +65,13 @@ func postUpdate(w http.ResponseWriter, r *http.Request) {
 		Name:  chi.URLParam(r, "name"),
 		Value: chi.URLParam(r, "value"),
 	}
-	store := r.Context().Value("store").(Storage)
+	store := r.Context().Value("store").(config.Storage)
 	if err := UpdateMetric(store, metric); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Printf("%v: add or update metric %s", err, metric.Name)
 	}
-	cfg := r.Context().Value("config").(*config.Config)
+
+	cfg := r.Context().Value("config").(config.Config)
 	if cfg.StoreInterval == 0 {
 		f, err := os.Create(cfg.FileStoragePath)
 		defer func() {
@@ -88,7 +88,7 @@ func postUpdate(w http.ResponseWriter, r *http.Request) {
 
 func getValue(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	store := r.Context().Value("store").(Storage)
+	store := r.Context().Value("store").(config.Storage)
 	value, err := GetMetricValue(store, name)
 	switch {
 	case errors.Is(err, models.ErrHTTPNotFound):
@@ -105,7 +105,7 @@ func getValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func getIndex(w http.ResponseWriter, r *http.Request) {
-	store := r.Context().Value("store").(Storage)
+	store := r.Context().Value("store").(config.Storage)
 	metrics := GetAllMetricValues(store)
 	tmpl, err := template.New("index").Parse(index)
 	if err != nil {
@@ -146,7 +146,8 @@ func (lm *LoggerMiddleware) WithLogging(h http.Handler) http.Handler {
 		}
 		lw := loggingResponseWriter{
 			ResponseWriter: w,
-			responseData:   responseData}
+			responseData:   responseData,
+		}
 
 		h.ServeHTTP(&lw, r)
 		duration := time.Since(start)
@@ -178,13 +179,13 @@ func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 
 	data := buf.Bytes()
 
-	store := r.Context().Value("store").(Storage)
+	store := r.Context().Value("store").(config.Storage)
 	resp, err := UpdateMetricFromJSON(store, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	cfg := r.Context().Value("config").(*config.Config)
+	cfg := r.Context().Value("config").(config.Config)
 	if cfg.StoreInterval == 0 {
 		f, err := os.Create(cfg.FileStoragePath)
 		defer func() {
@@ -220,7 +221,7 @@ func getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		_ = r.Body.Close()
 	}()
-	store := r.Context().Value("store").(Storage)
+	store := r.Context().Value("store").(config.Storage)
 	metric, err := ParsePostRequestJSON(buf.Bytes())
 	if err != nil {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
@@ -244,4 +245,15 @@ func getMetricJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func pingStorage(w http.ResponseWriter, r *http.Request) {
+	store := r.Context().Value("store").(config.Storage)
+	ctx := context.Background()
+	if err := store.Ping(ctx); err != nil {
+		http.Error(w, models.ErrHTTPInternalServerError.Error(), http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	return
 }

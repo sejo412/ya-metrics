@@ -119,10 +119,11 @@ func Test_handleUpdate(t *testing.T) {
 			}()
 			sugar := logger.Sugar()
 			lm := NewLoggerMiddleware(sugar)
-			store := storage.NewMemoryStorage()
+			var store config.Storage
+			store = storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  &cfg,
+				Config:  cfg,
 				Storage: store,
 			}, lm)
 			ts := httptest.NewServer(r)
@@ -135,7 +136,7 @@ func Test_handleUpdate(t *testing.T) {
 	}
 }
 func Test_getIndex(t *testing.T) {
-	//notFound := "404 page not found"
+	// notFound := "404 page not found"
 	type want struct {
 		code     int
 		response string
@@ -162,10 +163,11 @@ func Test_getIndex(t *testing.T) {
 			}()
 			sugar := logger.Sugar()
 			lm := NewLoggerMiddleware(sugar)
-			store := storage.NewMemoryStorage()
+			var store config.Storage
+			store = storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  &cfg,
+				Config:  cfg,
 				Storage: store,
 			}, lm)
 			ts := httptest.NewServer(r)
@@ -177,7 +179,8 @@ func Test_getIndex(t *testing.T) {
 		})
 	}
 }
-func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header, body io.Reader) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header,
+	body io.Reader) (*http.Response, string) {
 	ctx := context.TODO()
 	req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
 	req.Header = header
@@ -247,10 +250,11 @@ func Test_postUpdateJSON(t *testing.T) {
 			}()
 			sugar := logger.Sugar()
 			lm := NewLoggerMiddleware(sugar)
-			store := storage.NewMemoryStorage()
+			var store config.Storage
+			store = storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  &cfg,
+				Config:  cfg,
 				Storage: store,
 			}, lm)
 

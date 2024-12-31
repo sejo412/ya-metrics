@@ -45,6 +45,7 @@ func NewRouterWithConfig(opts *config.Options, logger *LoggerMiddleware) *Router
 	router.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", getValue)
 	router.Get("/", getIndex)
 	router.Post("/"+models.MetricPathGetPrefix+"/", getMetricJSON)
+	router.Get("/"+models.PingPath, pingStorage)
 
 	return &Router{router}
 }

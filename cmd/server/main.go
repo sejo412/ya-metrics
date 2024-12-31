@@ -25,6 +25,7 @@ func run() error {
 	pflag.IntVarP(&cfg.StoreInterval, "storeInterval", "i", config.DefaultStoreInterval, "Store interval")
 	pflag.StringVarP(&cfg.FileStoragePath, "fileStoragePath", "f", config.DefaultFileStoragePath, "File storage path")
 	pflag.BoolVarP(&cfg.Restore, "restore", "r", config.DefaultRestore, "Restore metrics")
+	pflag.StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", config.DefaultDatabaseDSN, "Database DSN")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
@@ -43,7 +44,25 @@ func run() error {
 	lm := app.NewLoggerMiddleware(sugar)
 	log := lm.Logger
 
-	store := storage.NewMemoryStorage()
+	var store config.Storage
+	dsn, err := storage.ParseDSN(cfg.DatabaseDSN)
+	if err != nil {
+		return fmt.Errorf("parse database DSN: %w", err)
+	}
+
+	switch dsn.Scheme {
+	case "memory":
+		store = storage.NewMemoryStorage()
+	case "postgres", "postgresql":
+		store = storage.NewPostgresStorage()
+	default:
+		return fmt.Errorf("database \"%s\" not supported", cfg.DatabaseDSN)
+	}
+
+	if err = store.Open(dsn); err != nil {
+		return fmt.Errorf("error open database: %w", err)
+	}
+	defer store.Close()
 
 	// restore metrics
 	if cfg.Restore {
@@ -67,7 +86,7 @@ func run() error {
 	}
 
 	return app.StartServer(&config.Options{
-		Config:  &cfg,
+		Config:  cfg,
 		Storage: store,
 	},
 		lm)
