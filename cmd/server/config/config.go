@@ -25,14 +25,15 @@ type Config struct {
 }
 
 type Storage interface {
-	Open(opts storage.Options) error
+	Open(ctx context.Context, opts storage.Options) error
 	Close()
 	Ping(ctx context.Context) error
-	AddOrUpdate(models.Metric) error
-	Get(kind string, name string) (models.Metric, error)
-	GetAll() []models.Metric
+	AddOrUpdate(context.Context, models.Metric) error
+	Get(ctx context.Context, kind string, name string) (models.Metric, error)
+	GetAll(ctx context.Context) ([]models.Metric, error)
 	Flush(dst io.Writer) error
 	Load(src io.Reader) error
+	Init(ctx context.Context) error
 }
 type Options struct {
 	Config  Config

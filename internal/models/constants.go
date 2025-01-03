@@ -12,6 +12,12 @@ const (
 )
 
 const (
+	_ = iota
+	MetricGauge
+	MetricCounter
+)
+
+const (
 	HTTPHeaderContentTypeApplicationJSON     string = "application/json"
 	HTTPHeaderContentTypeApplicationTextHTML string = "text/html"
 	HTTPHeaderEncodingGzip                   string = "gzip"

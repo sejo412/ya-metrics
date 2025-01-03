@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -26,7 +27,7 @@ func CheckMetricKind(metric models.Metric) error {
 }
 
 func GetMetricValue(st config.Storage, name string) (string, error) {
-	metric, err := st.Get("", name)
+	metric, err := st.Get(context.TODO(), "", name)
 	if err != nil {
 		return "", err
 	}
@@ -34,8 +35,13 @@ func GetMetricValue(st config.Storage, name string) (string, error) {
 }
 
 func GetAllMetricValues(st config.Storage) map[string]string {
+	ctx := context.Background()
 	result := make(map[string]string)
-	for _, metric := range st.GetAll() {
+	metrics, err := st.GetAll(ctx)
+	if err != nil {
+		return nil
+	}
+	for _, metric := range metrics {
 		value, err := models.GetMetricValueString(metric)
 		if err == nil {
 			result[metric.Name] = value

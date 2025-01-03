@@ -20,7 +20,7 @@ func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{metrics: metrics}
 }
 
-func (s *MemoryStorage) Open(opts Options) error {
+func (s *MemoryStorage) Open(ctx context.Context, opts Options) error {
 	return nil
 }
 
@@ -31,7 +31,11 @@ func (s *MemoryStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *MemoryStorage) AddOrUpdate(metric models.Metric) error {
+func (s *MemoryStorage) Init(ctx context.Context) error {
+	return nil
+}
+
+func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
 	if metric.Kind == models.MetricKindCounter {
 		if m, ok := s.metrics[metric.Name]; ok {
 			currentInt, err := strconv.Atoi(m.Value)
@@ -50,7 +54,7 @@ func (s *MemoryStorage) AddOrUpdate(metric models.Metric) error {
 	return nil
 }
 
-func (s *MemoryStorage) Get(kind, name string) (models.Metric, error) {
+func (s *MemoryStorage) Get(ctx context.Context, kind, name string) (models.Metric, error) {
 	// kind not used in this implementation, because name is "primary key" for MemoryStorage
 	if metric, ok := s.metrics[name]; ok {
 		return metric, nil
@@ -58,16 +62,16 @@ func (s *MemoryStorage) Get(kind, name string) (models.Metric, error) {
 	return models.Metric{}, models.ErrHTTPNotFound
 }
 
-func (s *MemoryStorage) GetAll() []models.Metric {
+func (s *MemoryStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 	metrics := make([]models.Metric, 0, len(s.metrics))
 	for _, metric := range s.metrics {
 		metrics = append(metrics, metric)
 	}
-	return metrics
+	return metrics, nil
 }
 
 func (s *MemoryStorage) Flush(dst io.Writer) error {
-	metrics := s.GetAll()
+	metrics, _ := s.GetAll(context.TODO())
 	for _, metric := range metrics {
 		m, err := models.ConvertV1ToV2(&metric)
 		if err != nil {
@@ -93,7 +97,7 @@ func (s *MemoryStorage) Load(src io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = s.AddOrUpdate(*res); err != nil {
+		if err = s.AddOrUpdate(context.TODO(), *res); err != nil {
 			return fmt.Errorf("error add or update metric %s: %w", res.Name, err)
 		}
 	}

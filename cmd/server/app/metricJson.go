@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
@@ -34,7 +35,8 @@ func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 	if err := CheckMetricKind(m); err != nil {
 		return nil, err
 	}
-	if err := st.AddOrUpdate(m); err != nil {
+	ctx := context.Background()
+	if err := st.AddOrUpdate(ctx, m); err != nil {
 		return nil, err
 	}
 	return GetMetricJSON(st, metric.MType, metric.ID)
@@ -42,13 +44,10 @@ func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 
 // GetMetricJSON return JSON representation metric by name
 func GetMetricJSON(st config.Storage, kind, name string) ([]byte, error) {
-	metric, err := st.Get("", name)
+	ctx := context.Background()
+	metric, err := st.Get(ctx, kind, name)
 	if err != nil {
 		return nil, err
-	}
-	// kind is dummy for MemoryStorage. in feature implementations (with other storages) this workaround will be removed
-	if metric.Kind != kind {
-		return nil, models.ErrHTTPNotFound
 	}
 	m, err := models.ConvertV1ToV2(&metric)
 	if err != nil {

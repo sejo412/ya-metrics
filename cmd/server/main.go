@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -59,10 +60,14 @@ func run() error {
 		return fmt.Errorf("database \"%s\" not supported", cfg.DatabaseDSN)
 	}
 
-	if err = store.Open(dsn); err != nil {
+	ctx := context.Background()
+	if err = store.Open(ctx, dsn); err != nil {
 		return fmt.Errorf("error open database: %w", err)
 	}
 	defer store.Close()
+	if err = store.Init(ctx); err != nil {
+		return fmt.Errorf("error init database: %w", err)
+	}
 
 	// restore metrics
 	if cfg.Restore {
