@@ -29,6 +29,7 @@ type Storage interface {
 	Close()
 	Ping(ctx context.Context) error
 	AddOrUpdate(context.Context, models.Metric) error
+	MassAddOrUpdate(context.Context, []models.Metric) error
 	Get(ctx context.Context, kind string, name string) (models.Metric, error)
 	GetAll(ctx context.Context) ([]models.Metric, error)
 	Flush(dst io.Writer) error

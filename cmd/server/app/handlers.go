@@ -206,6 +206,31 @@ func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+func postUpdatesJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
+		return
+	}
+	defer func() {
+		_ = r.Body.Close()
+	}()
+
+	data := buf.Bytes()
+
+	store := r.Context().Value("store").(config.Storage)
+	err = UpdateMetricsFromJSON(store, data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
 
 func getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {

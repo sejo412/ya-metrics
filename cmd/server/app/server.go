@@ -42,6 +42,7 @@ func NewRouterWithConfig(opts *config.Options, logger *LoggerMiddleware) *Router
 		postUpdate(w, r)
 	})
 	router.Post("/"+models.MetricPathPostPrefix+"/", postUpdateJSON)
+	router.Post("/"+models.MetricPathPostsPrefix+"/", postUpdatesJSON)
 	router.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", getValue)
 	router.Get("/", getIndex)
 	router.Post("/"+models.MetricPathGetPrefix+"/", getMetricJSON)

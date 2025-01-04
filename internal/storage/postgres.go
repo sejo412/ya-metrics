@@ -29,25 +29,14 @@ func NewPostgresStorage() *PostgresStorage {
 func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
-	var query string
-	var args []interface{}
 
-	switch metric.Kind {
-	case models.MetricKindCounter:
-		newCounter, err := strconv.Atoi(metric.Value)
-		if err != nil {
-			return fmt.Errorf("invalid counter value: %w", err)
-		}
-		query = postgresUpsertQueryWithSetValue(TblCounters, TblCounters+".value + EXCLUDED.value")
-		args = append(args, metric.Name, newCounter)
-	case models.MetricKindGauge:
-		query = postgresUpsertQueryWithSetValue(TblGauges, "EXCLUDED.value")
-		args = append(args, metric.Name, metric.Value)
-	default:
-		return fmt.Errorf("invalid metric kind")
-	}
 	if err := p.Ping(ctx); err != nil {
 		return fmt.Errorf("could not ping database: %w", err)
+	}
+
+	query, args, err := postgresUpsertQueryByMetric(metric)
+	if err != nil {
+		return fmt.Errorf("could not construct query: %w", err)
 	}
 
 	tx, err := p.Client.BeginTx(ctx, nil)
@@ -63,6 +52,39 @@ func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric)
 	}()
 	if _, err = tx.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("failed to insert/update metric: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
+	defer cancel()
+
+	if err := p.Ping(ctx); err != nil {
+		return fmt.Errorf("could not ping database: %w", err)
+	}
+
+	tx, err := p.Client.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	for _, metric := range metrics {
+		query, args, err := postgresUpsertQueryByMetric(metric)
+		if err != nil {
+			return fmt.Errorf("could not construct query: %w", err)
+		}
+		_, err = tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("failed to insert/update metric: %w", err)
+		}
 	}
 	return nil
 }
@@ -217,4 +239,22 @@ func postgresUpsertQueryWithSetValue(targetTable, setValue string) string {
 		)
 		ON CONFLICT (metric_id) DO UPDATE
 		SET value = %s ;`, TblMapping, targetTable, TblMapping, setValue)
+}
+
+func postgresUpsertQueryByMetric(metric models.Metric) (query string, args []interface{}, err error) {
+	switch metric.Kind {
+	case models.MetricKindCounter:
+		newCounter, err := strconv.Atoi(metric.Value)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid counter value: %w", err)
+		}
+		query = postgresUpsertQueryWithSetValue(TblCounters, TblCounters+".value + EXCLUDED.value")
+		args = append(args, metric.Name, newCounter)
+	case models.MetricKindGauge:
+		query = postgresUpsertQueryWithSetValue(TblGauges, "EXCLUDED.value")
+		args = append(args, metric.Name, metric.Value)
+	default:
+		return "", nil, fmt.Errorf("invalid metric kind")
+	}
+	return query, args, nil
 }

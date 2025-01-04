@@ -5,16 +5,11 @@ const (
 	MetricKindGauge       string = "gauge"
 	MetricKindCounter     string = "counter"
 	MetricPathPostPrefix  string = "update"
+	MetricPathPostsPrefix        = MetricPathPostPrefix + "s"
 	MetricPathGetPrefix   string = "value"
 	MetricNamePollCount   string = "PollCount"
 	MetricNameRandomValue string = "RandomValue"
 	PingPath              string = "ping"
-)
-
-const (
-	_ = iota
-	MetricGauge
-	MetricCounter
 )
 
 const (

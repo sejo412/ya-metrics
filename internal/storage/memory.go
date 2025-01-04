@@ -54,6 +54,15 @@ func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) e
 	return nil
 }
 
+func (s *MemoryStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
+	for _, metric := range metrics {
+		if err := s.AddOrUpdate(ctx, metric); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *MemoryStorage) Get(ctx context.Context, kind, name string) (models.Metric, error) {
 	// kind not used in this implementation, because name is "primary key" for MemoryStorage
 	if metric, ok := s.metrics[name]; ok {
