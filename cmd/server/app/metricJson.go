@@ -48,7 +48,7 @@ func UpdateMetricsFromJSON(st config.Storage, req []byte) error {
 	if err != nil {
 		return err
 	}
-	res := make([]models.Metric, len(parsedMetrics))
+	res := make([]models.Metric, 0, len(parsedMetrics))
 	for _, metric := range parsedMetrics {
 		m, err := models.ConvertV2ToV1(&metric)
 		if err != nil {

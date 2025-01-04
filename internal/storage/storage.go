@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ctxTimeout                 = 1 * time.Second
+	ctxTimeout                 = 300 * time.Second
 	defaultPostgresPort int    = 5432
 	MemoryScheme        string = "memory"
 )

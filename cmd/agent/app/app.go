@@ -59,6 +59,18 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 		report.Gauge[models.MetricNameRandomValue] = m.Gauge.RandomValue
 		report.Counter[models.MetricNamePollCount] = m.Counter.PollCount
 
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		// Try post batch and loops if success
+		if !oldAPI {
+			if err := postBatchMetricV2(ctx, report, address); err != nil {
+				log.Printf("failed to post batch: %v", err)
+			} else {
+				cancel()
+				time.Sleep(interval)
+				continue
+			}
+		}
+
 		var allMetrics []string
 		for name, value := range report.Gauge {
 			mpath := models.MetricPathPostPrefix + "/" + models.MetricKindGauge + "/" + name
@@ -69,23 +81,11 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 			allMetrics = append(allMetrics, fmt.Sprintf("%s/%v", mpath, value))
 		}
 
-		ch := make(chan string, len(allMetrics))
-		chErr := make(chan error, len(allMetrics))
-
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		for _, metric := range allMetrics {
 			if oldAPI {
-				go postMetric(ctx, metric, address, ch, chErr)
+				go postMetric(ctx, metric, address)
 			} else {
-				postMetricV2(ctx, metric, address, ch, chErr)
-			}
-			select {
-			case <-ctx.Done():
-				log.Printf("Context canceled: %v", ctx.Err())
-			case res := <-ch:
-				log.Println(res)
-			case err := <-chErr:
-				log.Printf("Error: %v", err)
+				go postMetricV2(ctx, metric, address)
 			}
 		}
 		cancel()
@@ -94,24 +94,26 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 }
 
 // postMetric push metrics to server
-func postMetric(ctx context.Context, metric, address string, ch chan string, chErr chan error) {
+func postMetric(ctx context.Context, metric, address string) {
 	uri := address + "/" + metric
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
 	if err != nil {
-		chErr <- err
+		log.Printf("failed build request: %v", err)
 		return
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		chErr <- err
+		log.Printf("failed post request: %v", err)
 		return
 	}
-	defer resp.Body.Close()
-	ch <- fmt.Sprintf("Sent %s: %d", metric, resp.StatusCode)
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	log.Printf("Sent %s: %d", metric, resp.StatusCode)
 }
 
-func postMetricV2(ctx context.Context, metric, address string, ch chan string, chErr chan error) {
+func postMetricV2(ctx context.Context, metric, address string) {
 	splitedMetric := strings.Split(metric, "/")
 	m := models.MetricV2{
 		ID:    splitedMetric[2],
@@ -121,46 +123,95 @@ func postMetricV2(ctx context.Context, metric, address string, ch chan string, c
 	case "gauge":
 		v, err := strconv.ParseFloat(splitedMetric[3], 64)
 		if err != nil {
-			chErr <- err
+			log.Printf("failed to parse gauge value: %v", err)
 			return
 		}
 		m.Value = &v
 	case "counter":
 		v, err := strconv.ParseInt(splitedMetric[3], baseInt, 64)
 		if err != nil {
-			chErr <- err
+			log.Printf("failed to parse counter value: %v", err)
 			return
 		}
 		m.Delta = &v
 	default:
-		chErr <- fmt.Errorf("unknown metric type: %s", m.MType)
+		log.Printf("unknown metric type: %s", m.MType)
+		return
 	}
 
 	body, err := json.Marshal(m)
 	if err != nil {
-		chErr <- err
+		log.Printf("failed to marshal metric: %v", err)
 		return
 	}
 
 	gziped, err := utils.Compress(body)
 	if err != nil {
-		chErr <- err
+		log.Printf("failed to compress metric: %v", err)
 		return
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
 		bytes.NewBuffer(gziped))
 	if err != nil {
-		chErr <- err
+		log.Printf("failed build request: %v", err)
 		return
 	}
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		chErr <- err
+		log.Printf("failed post request: %v", err)
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
-	ch <- fmt.Sprintf("Sent %s: %d", string(body), resp.StatusCode)
+	fmt.Printf("Sent %s: %d", string(body), resp.StatusCode)
+}
+
+func postBatchMetricV2(ctx context.Context, report *Report, address string) error {
+	metrics := reportToMetricsV2(report)
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics: %w", err)
+	}
+	gziped, err := utils.Compress(body)
+	if err != nil {
+		return fmt.Errorf("failed to compress metrics: %w", err)
+	}
+	uri := address + "/" + models.MetricPathPostsPrefix + "/"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri,
+		bytes.NewBuffer(gziped))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	log.Printf("Sent %s: %d", string(body), resp.StatusCode)
+	return nil
+}
+
+func reportToMetricsV2(report *Report) []models.MetricV2 {
+	metrics := make([]models.MetricV2, 0, len(report.Gauge)+len(report.Counter))
+	for name, value := range report.Gauge {
+		metric := models.MetricV2{
+			ID:    name,
+			MType: models.MetricKindGauge,
+			Value: &value,
+		}
+		metrics = append(metrics, metric)
+	}
+	for name, value := range report.Counter {
+		metric := models.MetricV2{
+			ID:    name,
+			MType: models.MetricKindCounter,
+			Delta: &value,
+		}
+		metrics = append(metrics, metric)
+	}
+	return metrics
 }
