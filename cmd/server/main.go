@@ -20,7 +20,6 @@ func main() {
 }
 
 func run() error {
-	fmt.Printf("[DEBUG] run application\n")
 	// startup config init
 	var cfg config.Config
 	pflag.StringVarP(&cfg.Address, "address", "a", config.DefaultAddress, "Listen address")
@@ -35,7 +34,6 @@ func run() error {
 	}
 
 	// logger init
-	fmt.Printf("[DEBUG] init logger\n")
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
@@ -46,7 +44,6 @@ func run() error {
 	sugar := logger.Sugar()
 	lm := app.NewLoggerMiddleware(sugar)
 	log := lm.Logger
-	log.Debug("logger initialized")
 
 	var store config.Storage
 	dsn, err := storage.ParseDSN(cfg.DatabaseDSN)
@@ -54,8 +51,6 @@ func run() error {
 		return fmt.Errorf("parse database DSN: %w", err)
 	}
 
-	log.Debugw("database DSN", "DSN", dsn)
-	log.Debugw("DSN scheme", "scheme", dsn.Scheme)
 	switch dsn.Scheme {
 	case "memory":
 		store = storage.NewMemoryStorage()
@@ -66,13 +61,10 @@ func run() error {
 	}
 
 	ctx := context.Background()
-	log.Debugw("opening storage", "path", cfg.DatabaseDSN)
 	if err = store.Open(ctx, dsn); err != nil {
 		return fmt.Errorf("error open database: %w", err)
 	}
 	defer store.Close()
-	log.Debugw("storage opened", "path", cfg.DatabaseDSN)
-	log.Debugw("init storage", "path", cfg.DatabaseDSN)
 	if err = store.Init(ctx); err != nil {
 		return fmt.Errorf("error init database: %w", err)
 	}
@@ -80,7 +72,6 @@ func run() error {
 	// try restore metrics
 	skipRestore := false
 	if cfg.Restore {
-		log.Debugw("open file with saved metrics", "path", cfg.FileStoragePath)
 		f, err := os.Open(cfg.FileStoragePath)
 		if err != nil {
 			log.Errorw("error open file",
@@ -88,12 +79,10 @@ func run() error {
 			skipRestore = true
 		}
 		if !skipRestore {
-			log.Debugw("restore metrics", "path", cfg.FileStoragePath)
 			if err = store.Load(f); err != nil {
 				log.Errorw("error load file",
 					"file", cfg.FileStoragePath)
 			}
-			log.Debugw("close file", "path", cfg.FileStoragePath)
 			if err := f.Close(); err != nil {
 				log.Errorw("error close file",
 					"file", cfg.FileStoragePath)
@@ -103,7 +92,6 @@ func run() error {
 
 	// start flushing metrics on timer
 	if cfg.StoreInterval > 0 && dsn.Scheme == "memory" {
-		log.Debugw("store interval", "interval", cfg.StoreInterval)
 		go app.FlushingMetrics(store, cfg.FileStoragePath, cfg.StoreInterval)
 	}
 

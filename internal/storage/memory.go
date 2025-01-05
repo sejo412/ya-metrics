@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 type MemoryStorage struct {
+	mutex   sync.Mutex
 	metrics map[string]models.Metric
 }
 
@@ -36,6 +38,8 @@ func (s *MemoryStorage) Init(ctx context.Context) error {
 }
 
 func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if metric.Kind == models.MetricKindCounter {
 		if m, ok := s.metrics[metric.Name]; ok {
 			currentInt, err := strconv.Atoi(m.Value)
