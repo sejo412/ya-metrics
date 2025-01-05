@@ -12,7 +12,7 @@ const (
 	DefaultAddress         string = ":8080"
 	DefaultStoreInterval   int    = 300
 	DefaultFileStoragePath string = "/tmp/metrics.json"
-	DefaultRestore         bool   = false
+	DefaultRestore         bool   = true
 	DefaultDatabaseDSN     string = ""
 )
 
