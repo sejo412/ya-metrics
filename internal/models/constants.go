@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // shared constants
 const (
 	MetricKindGauge       string = "gauge"
@@ -24,4 +26,10 @@ const (
 const (
 	base10        int = 10
 	metricBitSize int = 64
+)
+
+const (
+	RetryMaxRetries int           = 3
+	RetryInitDelay  time.Duration = 1 * time.Second
+	RetryDeltaDelay time.Duration = 2 * time.Second
 )

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/sejo412/ya-metrics/internal/models"
@@ -161,39 +162,65 @@ func (p *PostgresStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 }
 
 func (p *PostgresStorage) Flush(dst io.Writer) error {
-	// TODO implement me
+	// not implemented yet
 	return nil
 }
 
 func (p *PostgresStorage) Load(src io.Reader) error {
-	// TODO implement me
+	// not implemented yet
 	return nil
 }
 
+// Open trys open connections to database with retry
 func (p *PostgresStorage) Open(ctx context.Context, opts Options) error {
 	ps := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		opts.Host, opts.Port, opts.Username, opts.Password, opts.Database, opts.SSLMode)
-	db, err := sql.Open("pgx", ps)
-	if err != nil {
-		return fmt.Errorf("failed to open postgres connection: %w", err)
+	var lastErr error
+	for attempt := 0; attempt < models.RetryMaxRetries; attempt++ {
+		db, err := sql.Open("pgx", ps)
+		if err == nil {
+			p.Client = db
+			return nil
+		}
+		lastErr = err
+		delay := models.RetryInitDelay + time.Duration(attempt)*models.RetryDeltaDelay
+		time.Sleep(delay)
+		continue
 	}
-	p.Client = db
-	return nil
+	return fmt.Errorf("failed to open postgres connection: %w", lastErr)
 }
 
 func (p *PostgresStorage) Close() {
 	_ = p.Client.Close()
 }
 
+// Ping trys ping with retry
+// we want ping before init scheme, upsert only and using /ping location
+// user doesn't want waiting 1s + 3s + 5s before getting error
+// we don't interesting what happens with database
 func (p *PostgresStorage) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
-	return p.Client.PingContext(ctx)
+	var lastErr error
+	for attempt := 0; attempt < models.RetryMaxRetries; attempt++ {
+		err := p.Client.PingContext(ctx)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		delay := models.RetryInitDelay + time.Duration(attempt)*models.RetryDeltaDelay
+		time.Sleep(delay)
+		continue
+	}
+	return fmt.Errorf("error: All attempts failed [%d], last error is: %w", models.RetryMaxRetries, lastErr)
 }
 
 func (p *PostgresStorage) Init(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
+	if err := p.Ping(ctx); err != nil {
+		return fmt.Errorf("could not ping database: %w", err)
+	}
 	for _, row := range postgresScheme() {
 		if _, err := p.Client.ExecContext(ctx, row); err != nil {
 			return fmt.Errorf("failed to execute query: %w", err)

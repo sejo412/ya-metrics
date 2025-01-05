@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"syscall"
 )
 
 var (
@@ -21,3 +22,18 @@ const (
 	MessageNotFound     string = "not found"
 	MessageBadRequest   string = "bad request"
 )
+
+var ErrRetryable = []error{
+	syscall.ECONNRESET,
+	syscall.ECONNABORTED,
+	syscall.ECONNREFUSED,
+}
+
+func ErrIsRetryable(err error) bool {
+	for _, e := range ErrRetryable {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
+}

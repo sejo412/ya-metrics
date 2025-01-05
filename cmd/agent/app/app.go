@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/utils"
@@ -62,7 +63,10 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		// Try post batch and loops if success
 		if !oldAPI {
-			if err := postBatchMetricV2(ctx, report, address); err != nil {
+			err := withRetry(ctx, func(ctx context.Context) error {
+				return postBatchMetricV2(ctx, report, address)
+			})
+			if err != nil {
 				log.Printf("failed to post batch: %v", err)
 			} else {
 				cancel()
@@ -71,6 +75,7 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 			}
 		}
 
+		// Try post without batch
 		var allMetrics []string
 		for name, value := range report.Gauge {
 			mpath := models.MetricPathPostPrefix + "/" + models.MetricKindGauge + "/" + name
@@ -81,39 +86,80 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 			allMetrics = append(allMetrics, fmt.Sprintf("%s/%v", mpath, value))
 		}
 
+		// old (v2 without batch) and old-old (v1) api
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(allMetrics))
 		for _, metric := range allMetrics {
-			if oldAPI {
-				go postMetric(ctx, metric, address)
-			} else {
-				go postMetricV2(ctx, metric, address)
-			}
+			wg.Add(1)
+			go func(metric string) {
+				defer wg.Done()
+				var err error
+				if oldAPI {
+					err = withRetry(ctx, func(ctx context.Context) error {
+						return postMetric(ctx, metric, address)
+					})
+				} else {
+					err = withRetry(ctx, func(ctx context.Context) error {
+						return postMetricV2(ctx, metric, address)
+					})
+				}
+				if err != nil {
+					errChan <- err
+				}
+			}(metric)
 		}
+		wg.Wait()
+		close(errChan)
 		cancel()
+		for err := range errChan {
+			log.Printf("failed to post metrics: %v", err)
+		}
 		time.Sleep(interval)
 	}
 }
 
+// withRetry wrapper for other functions with retries
+func withRetry(ctx context.Context, f func(ctx context.Context) error) error {
+	var lastErr error
+	for attempt := 0; attempt < models.RetryMaxRetries; attempt++ {
+		err := f(ctx)
+		if err == nil {
+			return nil
+		}
+		if models.ErrIsRetryable(err) {
+			lastErr = err
+			delay := models.RetryInitDelay + time.Duration(attempt)*models.RetryDeltaDelay
+			log.Printf("error: %v, retrying in %v", err, delay)
+			time.Sleep(delay)
+			continue
+		}
+		return err
+	}
+	return fmt.Errorf("error: All attempts failed [%d], last error is: %w", models.RetryMaxRetries, lastErr)
+}
+
 // postMetric push metrics to server
-func postMetric(ctx context.Context, metric, address string) {
+func postMetric(ctx context.Context, metric, address string) error {
 	uri := address + "/" + metric
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
 	if err != nil {
 		log.Printf("failed build request: %v", err)
-		return
+		return err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed post request: %v", err)
-		return
+		return err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	log.Printf("Sent %s: %d", metric, resp.StatusCode)
+	return nil
 }
 
-func postMetricV2(ctx context.Context, metric, address string) {
+func postMetricV2(ctx context.Context, metric, address string) error {
 	splitedMetric := strings.Split(metric, "/")
 	m := models.MetricV2{
 		ID:    splitedMetric[2],
@@ -124,48 +170,49 @@ func postMetricV2(ctx context.Context, metric, address string) {
 		v, err := strconv.ParseFloat(splitedMetric[3], 64)
 		if err != nil {
 			log.Printf("failed to parse gauge value: %v", err)
-			return
+			return nil
 		}
 		m.Value = &v
 	case "counter":
 		v, err := strconv.ParseInt(splitedMetric[3], baseInt, 64)
 		if err != nil {
 			log.Printf("failed to parse counter value: %v", err)
-			return
+			return nil
 		}
 		m.Delta = &v
 	default:
 		log.Printf("unknown metric type: %s", m.MType)
-		return
+		return nil
 	}
 
 	body, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("failed to marshal metric: %v", err)
-		return
+		return nil
 	}
 
 	gziped, err := utils.Compress(body)
 	if err != nil {
 		log.Printf("failed to compress metric: %v", err)
-		return
+		return nil
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
 		bytes.NewBuffer(gziped))
 	if err != nil {
 		log.Printf("failed build request: %v", err)
-		return
+		return nil
 	}
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("failed post request: %v", err)
-		return
+		return nil
 	}
 	defer func() { _ = resp.Body.Close() }()
 	fmt.Printf("Sent %s: %d", string(body), resp.StatusCode)
+	return nil
 }
 
 func postBatchMetricV2(ctx context.Context, report *Report, address string) error {

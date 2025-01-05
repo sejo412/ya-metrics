@@ -10,7 +10,7 @@ const (
 	DefaultPollInterval   int    = 2
 	DefaultReportInterval int    = 10
 	DefaultUseOldAPI      bool   = false
-	ContextTimeout               = 2 * time.Second
+	ContextTimeout               = 10 * time.Second
 )
 
 type Config struct {
