@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/sejo412/ya-metrics/cmd/server/config"
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/utils"
 )
@@ -71,7 +71,7 @@ func postUpdate(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%v: add or update metric %s", err, metric.Name)
 	}
 
-	cfg := r.Context().Value("config").(config.Config)
+	cfg := r.Context().Value("config").(config.ServerConfig)
 	if cfg.StoreInterval == 0 {
 		f, err := os.Create(cfg.FileStoragePath)
 		defer func() {
@@ -185,7 +185,7 @@ func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	cfg := r.Context().Value("config").(config.Config)
+	cfg := r.Context().Value("config").(config.ServerConfig)
 	if cfg.StoreInterval == 0 {
 		f, err := os.Create(cfg.FileStoragePath)
 		defer func() {

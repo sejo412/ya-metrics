@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/sejo412/ya-metrics/cmd/server/config"
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 

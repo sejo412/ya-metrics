@@ -1,11 +1,11 @@
-package app
+package server
 
 import (
 	"context"
 	"encoding/json"
 	"strconv"
 
-	"github.com/sejo412/ya-metrics/cmd/server/config"
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 

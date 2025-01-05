@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/caarlos0/env/v6"
-	"github.com/sejo412/ya-metrics/cmd/server/app"
-	"github.com/sejo412/ya-metrics/cmd/server/config"
+	"github.com/sejo412/ya-metrics/internal/app/server"
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -21,7 +21,7 @@ func main() {
 
 func run() error {
 	// startup config init
-	var cfg config.Config
+	var cfg config.ServerConfig
 	pflag.StringVarP(&cfg.Address, "address", "a", config.DefaultAddress, "Listen address")
 	pflag.IntVarP(&cfg.StoreInterval, "storeInterval", "i", config.DefaultStoreInterval, "Store interval")
 	pflag.StringVarP(&cfg.FileStoragePath, "fileStoragePath", "f", config.DefaultFileStoragePath, "File storage path")
@@ -42,7 +42,7 @@ func run() error {
 		_ = logger.Sync()
 	}()
 	sugar := logger.Sugar()
-	lm := app.NewLoggerMiddleware(sugar)
+	lm := server.NewLoggerMiddleware(sugar)
 	log := lm.Logger
 
 	var store config.Storage
@@ -92,10 +92,10 @@ func run() error {
 
 	// start flushing metrics on timer
 	if cfg.StoreInterval > 0 && dsn.Scheme == "memory" {
-		go app.FlushingMetrics(store, cfg.FileStoragePath, cfg.StoreInterval)
+		go server.FlushingMetrics(store, cfg.FileStoragePath, cfg.StoreInterval)
 	}
 
-	return app.StartServer(&config.Options{
+	return server.StartServer(&config.Options{
 		Config:  cfg,
 		Storage: store,
 	},

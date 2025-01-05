@@ -1,4 +1,4 @@
-package app
+package agent
 
 import (
 	"bytes"
@@ -63,7 +63,7 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		// Try post batch and loops if success
 		if !oldAPI {
-			err := withRetry(ctx, func(ctx context.Context) error {
+			err := utils.WithRetry(ctx, func(ctx context.Context) error {
 				return postBatchMetricV2(ctx, report, address)
 			})
 			if err != nil {
@@ -95,11 +95,11 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 				defer wg.Done()
 				var err error
 				if oldAPI {
-					err = withRetry(ctx, func(ctx context.Context) error {
+					err = utils.WithRetry(ctx, func(ctx context.Context) error {
 						return postMetric(ctx, metric, address)
 					})
 				} else {
-					err = withRetry(ctx, func(ctx context.Context) error {
+					err = utils.WithRetry(ctx, func(ctx context.Context) error {
 						return postMetricV2(ctx, metric, address)
 					})
 				}
@@ -116,26 +116,6 @@ func ReportMetrics(m *Metrics, report *Report, address string, interval, timeout
 		}
 		time.Sleep(interval)
 	}
-}
-
-// withRetry wrapper for other functions with retries
-func withRetry(ctx context.Context, f func(ctx context.Context) error) error {
-	var lastErr error
-	for attempt := 0; attempt < models.RetryMaxRetries; attempt++ {
-		err := f(ctx)
-		if err == nil {
-			return nil
-		}
-		if models.ErrIsRetryable(err) {
-			lastErr = err
-			delay := models.RetryInitDelay + time.Duration(attempt)*models.RetryDeltaDelay
-			log.Printf("error: %v, retrying in %v", err, delay)
-			time.Sleep(delay)
-			continue
-		}
-		return err
-	}
-	return fmt.Errorf("error: All attempts failed [%d], last error is: %w", models.RetryMaxRetries, lastErr)
 }
 
 // postMetric push metrics to server

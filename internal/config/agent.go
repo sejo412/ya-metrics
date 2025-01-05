@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"time"
@@ -13,7 +13,7 @@ const (
 	ContextTimeout               = 10 * time.Second
 )
 
-type Config struct {
+type AgentConfig struct {
 	Address            string `env:"ADDRESS"`
 	ReportInterval     int    `env:"REPORT_INTERVAL"`
 	PollInterval       int    `env:"POLL_INTERVAL"`

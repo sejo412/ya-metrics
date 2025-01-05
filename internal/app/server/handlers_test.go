@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"bytes"
@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sejo412/ya-metrics/cmd/server/config"
+	"github.com/sejo412/ya-metrics/internal/config"
 	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
-var cfg = config.Config{
+var cfg = config.ServerConfig{
 	Address:         ":8080",
 	StoreInterval:   30,
 	FileStoragePath: "/tmp/testing_metrics.json",

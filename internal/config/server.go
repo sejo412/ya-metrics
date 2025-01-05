@@ -16,7 +16,7 @@ const (
 	DefaultDatabaseDSN     string = ""
 )
 
-type Config struct {
+type ServerConfig struct {
 	Address         string `env:"ADDRESS"`
 	StoreInterval   int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
@@ -37,6 +37,6 @@ type Storage interface {
 	Init(ctx context.Context) error
 }
 type Options struct {
-	Config  Config
+	Config  ServerConfig
 	Storage Storage
 }
