@@ -69,19 +69,24 @@ func run() error {
 		return fmt.Errorf("error init database: %w", err)
 	}
 
-	// restore metrics
+	// try restore metrics
+	skipRestore := false
 	if cfg.Restore {
 		f, err := os.Open(cfg.FileStoragePath)
 		if err != nil {
 			log.Errorw("error open file",
 				"file", cfg.FileStoragePath)
+			skipRestore = true
 		}
-		defer func() {
-			_ = f.Close()
-		}()
-		if err = store.Load(f); err != nil {
-			log.Errorw("error load file",
-				"file", cfg.FileStoragePath)
+		if !skipRestore {
+			if err = store.Load(f); err != nil {
+				log.Errorw("error load file",
+					"file", cfg.FileStoragePath)
+			}
+			if err := f.Close(); err != nil {
+				log.Errorw("error close file",
+					"file", cfg.FileStoragePath)
+			}
 		}
 	}
 
