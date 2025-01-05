@@ -171,7 +171,7 @@ func (p *PostgresStorage) Load(src io.Reader) error {
 	return nil
 }
 
-// Open trys open connections to database with retry
+// Open tries open connections to database with retry
 func (p *PostgresStorage) Open(ctx context.Context, opts Options) error {
 	ps := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		opts.Host, opts.Port, opts.Username, opts.Password, opts.Database, opts.SSLMode)
@@ -194,7 +194,7 @@ func (p *PostgresStorage) Close() {
 	_ = p.Client.Close()
 }
 
-// Ping trys ping with retry
+// Ping tries ping with retry
 // we want ping before init scheme, upsert only and using /ping location
 // user doesn't want waiting 1s + 3s + 5s before getting error
 // we don't interesting what happens with database
