@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/sejo412/ya-metrics/internal/config"
+	logger2 "github.com/sejo412/ya-metrics/internal/logger"
 	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
@@ -118,7 +119,7 @@ func Test_handleUpdate(t *testing.T) {
 				_ = logger.Sync()
 			}()
 			sugar := logger.Sugar()
-			lm := NewLoggerMiddleware(sugar)
+			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
@@ -161,7 +162,7 @@ func Test_getIndex(t *testing.T) {
 				_ = logger.Sync()
 			}()
 			sugar := logger.Sugar()
-			lm := NewLoggerMiddleware(sugar)
+			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
@@ -247,7 +248,7 @@ func Test_postUpdateJSON(t *testing.T) {
 				_ = logger.Sync()
 			}()
 			sugar := logger.Sugar()
-			lm := NewLoggerMiddleware(sugar)
+			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{

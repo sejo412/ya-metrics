@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/caarlos0/env/v6"
@@ -11,6 +10,12 @@ import (
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/spf13/pflag"
 )
+
+type Service interface {
+	Poll()
+	Report(ctx context.Context, opts *config.AgentConfig)
+	Run(ctx context.Context, opts *config.AgentConfig) error
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -32,17 +37,19 @@ func run() error {
 	}
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
-	m := new(agent.Metrics)
-	r := new(agent.Report)
-	r.Gauge = make(map[string]float64)
-	r.Counter = make(map[string]int64)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go agent.PollMetrics(m, cfg.RealPollInterval)
-	wg.Add(1)
-	go agent.ReportMetrics(m, r, fmt.Sprintf("%s://%s", config.ServerScheme, cfg.Address), cfg.RealReportInterval,
-		config.ContextTimeout, cfg.UseOldAPI)
-	wg.Wait()
-	wg.Done()
-	return nil
+
+	metrics, err := agent.NewMetrics()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = metrics.Logger.Sync()
+	}()
+	metrics.Logger.Infow("starting agent", "server", cfg.Address,
+		"reportInterval", cfg.ReportInterval,
+		"pollInterval", cfg.PollInterval,
+		"oldApi", cfg.UseOldAPI)
+	ctx, cancel := context.WithTimeout(context.Background(), config.ContextTimeout)
+	defer cancel()
+	return metrics.Run(ctx, &cfg)
 }

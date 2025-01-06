@@ -2,11 +2,14 @@ package agent
 
 import (
 	"runtime"
+
+	"github.com/sejo412/ya-metrics/internal/logger"
 )
 
 type Metrics struct {
 	Gauge   Gauge
 	Counter Counter
+	Logger  *logger.Logger
 }
 
 type Gauge struct {

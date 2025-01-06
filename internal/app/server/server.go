@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
 
 	"github.com/go-chi/chi/v5"
@@ -20,11 +21,11 @@ func NewRouter() *Router {
 	return &Router{chi.NewRouter()}
 }
 
-func NewRouterWithConfig(opts *config.Options, logger *LoggerMiddleware) *Router {
+func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router {
 	router := NewRouter()
 
 	// middlewares
-	router.Use(logger.WithLogging)
+	router.Use(logs.WithLogging)
 	router.Use(middleware.WithValue("store", opts.Storage))
 	router.Use(middleware.WithValue("config", opts.Config))
 	router.Use(gzipHandle)
@@ -51,9 +52,9 @@ func NewRouterWithConfig(opts *config.Options, logger *LoggerMiddleware) *Router
 	return &Router{router}
 }
 
-func StartServer(opts *config.Options, logger *LoggerMiddleware) error {
-	log := logger.Logger
-	router := NewRouterWithConfig(opts, logger)
+func StartServer(opts *config.Options, logs *logger.Middleware) error {
+	log := logs.Logger
+	router := NewRouterWithConfig(opts, logs)
 
 	log.Infow("server starting",
 		"address", opts.Config.Address,

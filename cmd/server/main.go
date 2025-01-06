@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v6"
 	"github.com/sejo412/ya-metrics/internal/app/server"
 	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -34,15 +35,15 @@ func run() error {
 	}
 
 	// logger init
-	logger, err := zap.NewDevelopment()
+	logs, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		_ = logger.Sync()
+		_ = logs.Sync()
 	}()
-	sugar := logger.Sugar()
-	lm := server.NewLoggerMiddleware(sugar)
+	sugar := logs.Sugar()
+	lm := logger.NewMiddleware(sugar)
 	log := lm.Logger
 
 	var store config.Storage

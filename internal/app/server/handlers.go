@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sejo412/ya-metrics/internal/config"
@@ -134,32 +133,6 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-}
-
-func (lm *LoggerMiddleware) WithLogging(h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		responseData := &responseData{
-			status: 200,
-			size:   0,
-		}
-		lw := loggingResponseWriter{
-			ResponseWriter: w,
-			responseData:   responseData,
-		}
-
-		h.ServeHTTP(&lw, r)
-		duration := time.Since(start)
-		lm.Logger.Infow(
-			"incoming request",
-			"uri", r.RequestURI,
-			"method", r.Method,
-			"status", responseData.status,
-			"duration", duration,
-			"size", responseData.size)
-	}
-	return http.HandlerFunc(fn)
 }
 
 func postUpdateJSON(w http.ResponseWriter, r *http.Request) {
