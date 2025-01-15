@@ -60,9 +60,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			if a.Metrics.Counter.PollCount == 0 {
 				continue
 			}
-			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			a.Report(ctx)
-			cancel()
 			time.Sleep(a.Config.RealReportInterval)
 		}
 	}()
@@ -84,8 +82,6 @@ func (a *Agent) Poll() {
 func (a *Agent) Report(ctx context.Context) {
 	var err error
 	log := a.Config.Logger
-	ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
-	defer cancel()
 	report := new(Report)
 	report.Gauge = make(map[string]float64)
 	report.Counter = make(map[string]int64)
@@ -108,6 +104,8 @@ func (a *Agent) Report(ctx context.Context) {
 	// Try post batch
 	if !a.Config.UseOldAPI {
 		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
+			defer cancel()
 			return postBatchMetricV2(ctx, report, address, log)
 		})
 		if err == nil {
