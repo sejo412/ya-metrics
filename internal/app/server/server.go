@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
@@ -14,10 +13,11 @@ import (
 
 type Router struct {
 	chi.Router
+	opts config.Options
 }
 
 func NewRouter() *Router {
-	return &Router{chi.NewRouter()}
+	return &Router{chi.NewRouter(), config.Options{}}
 }
 
 func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router {
@@ -25,9 +25,11 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 
 	// middlewares
 	router.Use(logs.WithLogging)
-	router.Use(middleware.WithValue("store", opts.Storage))
-	router.Use(middleware.WithValue("config", opts.Config))
 	router.Use(gzipHandle)
+
+	// config & storage
+	router.opts.Config = opts.Config
+	router.opts.Storage = opts.Storage
 
 	// requests
 	router.Post("/"+models.MetricPathPostPrefix+"/{kind}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
@@ -39,16 +41,16 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
 			return
 		}
-		postUpdate(w, r)
+		router.postUpdate(w, r)
 	})
-	router.Post("/"+models.MetricPathPostPrefix+"/", postUpdateJSON)
-	router.Post("/"+models.MetricPathPostsPrefix+"/", postUpdatesJSON)
-	router.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", getValue)
-	router.Get("/", getIndex)
-	router.Post("/"+models.MetricPathGetPrefix+"/", getMetricJSON)
-	router.Get("/"+models.PingPath, pingStorage)
+	router.Post("/"+models.MetricPathPostPrefix+"/", router.postUpdateJSON)
+	router.Post("/"+models.MetricPathPostsPrefix+"/", router.postUpdatesJSON)
+	router.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", router.getValue)
+	router.Get("/", router.getIndex)
+	router.Post("/"+models.MetricPathGetPrefix+"/", router.getMetricJSON)
+	router.Get("/"+models.PingPath, router.pingStorage)
 
-	return &Router{router}
+	return router
 }
 
 func StartServer(opts *config.Options,
