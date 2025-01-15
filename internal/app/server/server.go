@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Router struct {
@@ -52,7 +51,8 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	return &Router{router}
 }
 
-func StartServer(opts *config.Options, logs *logger.Middleware) error {
+func StartServer(opts *config.Options,
+	logs *logger.Middleware) error {
 	log := logs.Logger
 	router := NewRouterWithConfig(opts, logs)
 
