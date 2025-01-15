@@ -25,33 +25,31 @@ const (
 	baseInt = 10
 )
 
-func NewMetrics() (*Metrics, error) {
-	logs, err := logger.NewLogger()
-	if err != nil {
-		return nil, err
-	}
+func NewAgent(cfg *config.AgentConfig) *Agent {
 	m := &Metrics{
-		Gauge{
+		Gauge: Gauge{
 			MemStats:    nil,
 			RandomValue: 0,
 		},
-		Counter{
+		Counter: Counter{
 			PollCount: 0,
 		},
-		logs,
 	}
-	return m, nil
+	return &Agent{
+		Metrics: m,
+		Config:  cfg,
+	}
 }
 
-func (m *Metrics) Run(ctx context.Context, opts *config.AgentConfig) error {
+func (a *Agent) Run(ctx context.Context) error {
 	var err error
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for {
-			m.Poll()
-			time.Sleep(opts.RealPollInterval)
+			a.Poll()
+			time.Sleep(a.Config.RealPollInterval)
 		}
 	}()
 	wg.Add(1)
@@ -59,11 +57,13 @@ func (m *Metrics) Run(ctx context.Context, opts *config.AgentConfig) error {
 		defer wg.Done()
 		for {
 			// skip if function start before polling
-			if m.Counter.PollCount == 0 {
+			if a.Metrics.Counter.PollCount == 0 {
 				continue
 			}
-			m.Report(ctx, opts)
-			time.Sleep(opts.RealReportInterval)
+			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
+			a.Report(ctx)
+			cancel()
+			time.Sleep(a.Config.RealReportInterval)
 		}
 	}()
 	wg.Wait()
@@ -71,24 +71,25 @@ func (m *Metrics) Run(ctx context.Context, opts *config.AgentConfig) error {
 }
 
 // Poll collects runtime metrics
-func (m *Metrics) Poll() {
+func (a *Agent) Poll() {
 	cryptoRand, _ := rand.Int(rand.Reader, big.NewInt(maxRand))
 	mem := &runtime.MemStats{}
 	runtime.ReadMemStats(mem)
-	m.Gauge.MemStats = mem
-	m.Gauge.RandomValue = float64(cryptoRand.Uint64())
-	m.Counter.PollCount = 1
+	a.Metrics.Gauge.MemStats = mem
+	a.Metrics.Gauge.RandomValue = float64(cryptoRand.Uint64())
+	a.Metrics.Counter.PollCount = 1
 }
 
 // Report gets metrics and run postMetric function
-func (m *Metrics) Report(ctx context.Context, opts *config.AgentConfig) {
+func (a *Agent) Report(ctx context.Context) {
 	var err error
+	log := a.Config.Logger
 	ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 	defer cancel()
 	report := new(Report)
 	report.Gauge = make(map[string]float64)
 	report.Counter = make(map[string]int64)
-	runtimeMetrics := models.RuntimeMetricsMap(m.Gauge.MemStats)
+	runtimeMetrics := models.RuntimeMetricsMap(a.Metrics.Gauge.MemStats)
 	for key, value := range runtimeMetrics {
 		switch v := value.(type) {
 		case uint64:
@@ -99,21 +100,21 @@ func (m *Metrics) Report(ctx context.Context, opts *config.AgentConfig) {
 			report.Gauge[key] = v
 		}
 	}
-	report.Gauge[models.MetricNameRandomValue] = m.Gauge.RandomValue
-	report.Counter[models.MetricNamePollCount] = m.Counter.PollCount
+	report.Gauge[models.MetricNameRandomValue] = a.Metrics.Gauge.RandomValue
+	report.Counter[models.MetricNamePollCount] = a.Metrics.Counter.PollCount
 
-	address := fmt.Sprintf("%s://%s", config.ServerScheme, opts.Address)
+	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 
 	// Try post batch
-	if !opts.UseOldAPI {
-		err = utils.WithRetry(ctx, m.Logger, func(ctx context.Context) error {
-			return postBatchMetricV2(ctx, report, address, m.Logger)
+	if !a.Config.UseOldAPI {
+		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+			return postBatchMetricV2(ctx, report, address, log)
 		})
 		if err == nil {
 			return
 		}
 	}
-	m.Logger.Errorf("failed to post batch: %v", err)
+	log.Errorf("failed to post batch: %v", err)
 
 	// Try post without batch
 	var allMetrics []string
@@ -133,13 +134,13 @@ func (m *Metrics) Report(ctx context.Context, opts *config.AgentConfig) {
 		wg.Add(1)
 		go func(metric string) {
 			defer wg.Done()
-			if opts.UseOldAPI {
-				err = utils.WithRetry(ctx, m.Logger, func(ctx context.Context) error {
-					return postMetric(ctx, metric, address, m.Logger)
+			if a.Config.UseOldAPI {
+				err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+					return postMetric(ctx, metric, address, log)
 				})
 			} else {
-				err = utils.WithRetry(ctx, m.Logger, func(ctx context.Context) error {
-					return postMetricV2(ctx, metric, address, m.Logger)
+				err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+					return postMetricV2(ctx, metric, address, log)
 				})
 			}
 			if err != nil {
@@ -150,7 +151,7 @@ func (m *Metrics) Report(ctx context.Context, opts *config.AgentConfig) {
 	wg.Wait()
 	close(errChan)
 	for e := range errChan {
-		m.Logger.Errorw("failed to post metrics",
+		log.Errorw("failed to post metrics",
 			"error", e)
 	}
 }

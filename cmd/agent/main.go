@@ -8,14 +8,9 @@ import (
 	"github.com/caarlos0/env/v6"
 	"github.com/sejo412/ya-metrics/internal/app/agent"
 	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/spf13/pflag"
 )
-
-type Service interface {
-	Poll()
-	Report(ctx context.Context, opts *config.AgentConfig)
-	Run(ctx context.Context, opts *config.AgentConfig) error
-}
 
 func main() {
 	if err := run(); err != nil {
@@ -37,19 +32,20 @@ func run() error {
 	}
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
-
-	metrics, err := agent.NewMetrics()
+	cfg.Logger, err = logger.NewLogger()
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = metrics.Logger.Sync()
+		_ = cfg.Logger.Sync()
 	}()
-	metrics.Logger.Infow("starting agent", "server", cfg.Address,
+
+	a := agent.NewAgent(&cfg)
+	l := a.Config.Logger
+	l.Infow("starting agent", "server", cfg.Address,
 		"reportInterval", cfg.ReportInterval,
 		"pollInterval", cfg.PollInterval,
 		"oldApi", cfg.UseOldAPI)
-	ctx, cancel := context.WithTimeout(context.Background(), config.ContextTimeout)
-	defer cancel()
-	return metrics.Run(ctx, &cfg)
+	ctx := context.Background()
+	return a.Run(ctx)
 }
