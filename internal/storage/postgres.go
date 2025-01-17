@@ -31,10 +31,6 @@ func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric)
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
-	if err := p.Ping(ctx); err != nil {
-		return fmt.Errorf("could not ping database: %w", err)
-	}
-
 	query, args, err := postgresUpsertQueryByMetric(metric)
 	if err != nil {
 		return fmt.Errorf("could not construct query: %w", err)
@@ -60,10 +56,6 @@ func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric)
 func (p *PostgresStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
-
-	if err := p.Ping(ctx); err != nil {
-		return fmt.Errorf("could not ping database: %w", err)
-	}
 
 	tx, err := p.Client.BeginTx(ctx, nil)
 	if err != nil {
