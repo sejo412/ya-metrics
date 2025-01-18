@@ -1,4 +1,4 @@
-package app
+package server
 
 import (
 	"bytes"
@@ -10,14 +10,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sejo412/ya-metrics/cmd/server/config"
+	"github.com/sejo412/ya-metrics/internal/config"
+	logger2 "github.com/sejo412/ya-metrics/internal/logger"
 	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
-var cfg = config.Config{
+var cfg = config.ServerConfig{
 	Address:         ":8080",
 	StoreInterval:   30,
 	FileStoragePath: "/tmp/testing_metrics.json",
@@ -118,11 +119,11 @@ func Test_handleUpdate(t *testing.T) {
 				_ = logger.Sync()
 			}()
 			sugar := logger.Sugar()
-			lm := NewLoggerMiddleware(sugar)
+			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  &cfg,
+				Config:  cfg,
 				Storage: store,
 			}, lm)
 			ts := httptest.NewServer(r)
@@ -135,7 +136,7 @@ func Test_handleUpdate(t *testing.T) {
 	}
 }
 func Test_getIndex(t *testing.T) {
-	//notFound := "404 page not found"
+	// notFound := "404 page not found"
 	type want struct {
 		code     int
 		response string
@@ -161,11 +162,11 @@ func Test_getIndex(t *testing.T) {
 				_ = logger.Sync()
 			}()
 			sugar := logger.Sugar()
-			lm := NewLoggerMiddleware(sugar)
+			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  &cfg,
+				Config:  cfg,
 				Storage: store,
 			}, lm)
 			ts := httptest.NewServer(r)
@@ -177,7 +178,8 @@ func Test_getIndex(t *testing.T) {
 		})
 	}
 }
-func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header, body io.Reader) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header,
+	body io.Reader) (*http.Response, string) {
 	ctx := context.TODO()
 	req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
 	req.Header = header
@@ -246,11 +248,11 @@ func Test_postUpdateJSON(t *testing.T) {
 				_ = logger.Sync()
 			}()
 			sugar := logger.Sugar()
-			lm := NewLoggerMiddleware(sugar)
+			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  &cfg,
+				Config:  cfg,
 				Storage: store,
 			}, lm)
 

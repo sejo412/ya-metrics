@@ -1,8 +1,15 @@
-package app
+package agent
 
 import (
 	"runtime"
+
+	"github.com/sejo412/ya-metrics/internal/config"
 )
+
+type Agent struct {
+	Metrics *Metrics
+	Config  *config.AgentConfig
+}
 
 type Metrics struct {
 	Gauge   Gauge

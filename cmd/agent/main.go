@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/caarlos0/env/v6"
-	"github.com/sejo412/ya-metrics/cmd/agent/app"
+	"github.com/sejo412/ya-metrics/internal/app/agent"
+	"github.com/sejo412/ya-metrics/internal/config"
+	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/spf13/pflag"
 )
 
@@ -18,11 +19,12 @@ func main() {
 }
 
 func run() error {
-	var cfg Config
-	pflag.StringVarP(&cfg.Address, "address", "a", DefaultServerAddress, "addressFlag to connect to")
-	pflag.IntVarP(&cfg.ReportInterval, "reportInterval", "r", DefaultReportInterval, "report interval (in seconds)")
-	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", DefaultPollInterval, "poll interval (in seconds)")
-	pflag.BoolVarP(&cfg.UseOldAPI, "oldApi", "o", DefaultUseOldAPI, "use old api (deprecated)")
+	var cfg config.AgentConfig
+	pflag.StringVarP(&cfg.Address, "address", "a", config.DefaultServerAddress, "addressFlag to connect to")
+	pflag.IntVarP(&cfg.ReportInterval, "reportInterval", "r", config.DefaultReportInterval,
+		"report interval (in seconds)")
+	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", config.DefaultPollInterval, "poll interval (in seconds)")
+	pflag.BoolVarP(&cfg.UseOldAPI, "oldApi", "o", config.DefaultUseOldAPI, "use old api (deprecated)")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
@@ -30,16 +32,20 @@ func run() error {
 	}
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
 	cfg.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
-	m := new(app.Metrics)
-	r := new(app.Report)
-	r.Gauge = make(map[string]float64)
-	r.Counter = make(map[string]int64)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go app.PollMetrics(m, cfg.RealPollInterval)
-	wg.Add(1)
-	go app.ReportMetrics(m, r, fmt.Sprintf("%s://%s", ServerScheme, cfg.Address), cfg.RealReportInterval, ContextTimeout, cfg.UseOldAPI)
-	wg.Wait()
-	wg.Done()
-	return nil
+	cfg.Logger, err = logger.NewLogger()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = cfg.Logger.Sync()
+	}()
+
+	a := agent.NewAgent(&cfg)
+	l := a.Config.Logger
+	l.Infow("starting agent", "server", cfg.Address,
+		"reportInterval", cfg.ReportInterval,
+		"pollInterval", cfg.PollInterval,
+		"oldApi", cfg.UseOldAPI)
+	ctx := context.Background()
+	return a.Run(ctx)
 }

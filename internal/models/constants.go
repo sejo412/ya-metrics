@@ -1,13 +1,17 @@
 package models
 
+import "time"
+
 // shared constants
 const (
 	MetricKindGauge       string = "gauge"
 	MetricKindCounter     string = "counter"
 	MetricPathPostPrefix  string = "update"
+	MetricPathPostsPrefix        = MetricPathPostPrefix + "s"
 	MetricPathGetPrefix   string = "value"
 	MetricNamePollCount   string = "PollCount"
 	MetricNameRandomValue string = "RandomValue"
+	PingPath              string = "ping"
 )
 
 const (
@@ -22,4 +26,10 @@ const (
 const (
 	base10        int = 10
 	metricBitSize int = 64
+)
+
+const (
+	RetryMaxRetries int           = 3
+	RetryInitDelay  time.Duration = 1 * time.Second
+	RetryDeltaDelay time.Duration = 2 * time.Second
 )

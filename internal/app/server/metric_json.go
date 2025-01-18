@@ -1,14 +1,16 @@
-package app
+package server
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
+	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
 // UpdateMetricFromJSON updates metric from incoming json
-func UpdateMetricFromJSON(st Storage, req []byte) ([]byte, error) {
+func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 	var (
 		metric models.MetricV2
 		err    error
@@ -33,21 +35,40 @@ func UpdateMetricFromJSON(st Storage, req []byte) ([]byte, error) {
 	if err := CheckMetricKind(m); err != nil {
 		return nil, err
 	}
-	if err := st.AddOrUpdate(m); err != nil {
+	ctx := context.Background()
+	if err := st.AddOrUpdate(ctx, m); err != nil {
 		return nil, err
 	}
 	return GetMetricJSON(st, metric.MType, metric.ID)
 }
 
+// UpdateMetricsFromJSON updates metrics from incoming JSON slice
+func UpdateMetricsFromJSON(st config.Storage, req []byte) error {
+	parsedMetrics, err := ParsePostRequestJSONSlice(req)
+	if err != nil {
+		return err
+	}
+	res := make([]models.Metric, 0, len(parsedMetrics))
+	for _, metric := range parsedMetrics {
+		m, err := models.ConvertV2ToV1(&metric)
+		if err != nil {
+			return err
+		}
+		res = append(res, *m)
+	}
+	ctx := context.Background()
+	if err := st.MassAddOrUpdate(ctx, res); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetMetricJSON return JSON representation metric by name
-func GetMetricJSON(st Storage, kind, name string) ([]byte, error) {
-	metric, err := st.Get("", name)
+func GetMetricJSON(st config.Storage, kind, name string) ([]byte, error) {
+	ctx := context.Background()
+	metric, err := st.Get(ctx, kind, name)
 	if err != nil {
 		return nil, err
-	}
-	// kind is dummy for MemoryStorage. in feature implementations (with other storages) this workaround will be removed
-	if metric.Kind != kind {
-		return nil, models.ErrHTTPNotFound
 	}
 	m, err := models.ConvertV1ToV2(&metric)
 	if err != nil {
@@ -59,6 +80,15 @@ func GetMetricJSON(st Storage, kind, name string) ([]byte, error) {
 // ParsePostRequestJSON converts incoming json to MetricV2 type
 func ParsePostRequestJSON(request []byte) (models.MetricV2, error) {
 	metrics := models.MetricV2{}
+	if err := json.Unmarshal(request, &metrics); err != nil {
+		return metrics, models.ErrHTTPBadRequest
+	}
+	return metrics, nil
+}
+
+// ParsePostRequestJSONSlice coverts incoming json to []MetricV2
+func ParsePostRequestJSONSlice(request []byte) ([]models.MetricV2, error) {
+	metrics := make([]models.MetricV2, 0)
 	if err := json.Unmarshal(request, &metrics); err != nil {
 		return metrics, models.ErrHTTPBadRequest
 	}

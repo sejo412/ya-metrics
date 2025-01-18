@@ -12,7 +12,7 @@
 Чтобы иметь возможность получать обновления автотестов и других частей шаблона, выполните команду:
 
 ```
-git remote add -m main template https://github.com/Yandex-Practicum/go-musthave-metrics-tpl.git
+git remote add -a main template https://github.com/Yandex-Practicum/go-musthave-metrics-tpl.git
 ```
 
 Для обновления кода автотестов выполните команду:
@@ -30,3 +30,4 @@ git fetch template && git checkout template/main .github
 При мёрже ветки с инкрементом в основную ветку `main` будут запускаться все автотесты.
 
 Подробнее про локальный и автоматический запуск читайте в [README автотестов](https://github.com/Yandex-Practicum/go-autotests).
+
