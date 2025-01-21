@@ -37,7 +37,6 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 	return &Agent{
 		Metrics: m,
 		Config:  cfg,
-		Req:     &http.Request{},
 	}
 }
 
@@ -152,30 +151,25 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
-func (a *Agent) SetHeader(key, value string) {
-	a.Req.Header.Set(key, value)
-}
-
-func (a *Agent) Sign(body *[]byte) {
+func (a *Agent) Sign(body *[]byte, r *http.Request) {
 	if a.Config.Key == "" {
 		return
 	}
 	hash := utils.Hash(*body, a.Config.Key)
-	a.Req.Header.Set(models.HTTPHeaderSign, hash)
+	r.Header.Set(models.HTTPHeaderSign, hash)
 }
 
 // postMetric push metrics to server
 func (a *Agent) postMetric(ctx context.Context, metric string) error {
-	var err error
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 	log := a.Config.Logger
 	uri := address + "/" + metric
 
-	a.Req, err = http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed build request: %w", err)
 	}
-	resp, err := http.DefaultClient.Do(a.Req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed post request: %w", err)
 	}
@@ -221,15 +215,15 @@ func (a *Agent) postMetricV2(ctx context.Context, metric string) error {
 		return fmt.Errorf("failed compress metric: %w", err)
 	}
 
-	a.Req, err = http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
 		bytes.NewBuffer(gziped))
 	if err != nil {
 		return fmt.Errorf("failed build request: %w", err)
 	}
-	a.SetHeader(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
-	a.SetHeader(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
-	a.Sign(&gziped)
-	resp, err := http.DefaultClient.Do(a.Req)
+	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+	a.Sign(&gziped, req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed post request: %w", err)
 	}
@@ -251,15 +245,15 @@ func (a *Agent) postBatchMetricV2(ctx context.Context, report *Report) error {
 		return fmt.Errorf("failed to compress metrics: %w", err)
 	}
 	uri := address + "/" + models.MetricPathPostsPrefix + "/"
-	a.Req, err = http.NewRequestWithContext(ctx, http.MethodPost, uri,
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri,
 		bytes.NewBuffer(gziped))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	a.SetHeader(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
-	a.SetHeader(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
-	a.Sign(&gziped)
-	resp, err := http.DefaultClient.Do(a.Req)
+	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
+	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+	a.Sign(&gziped, req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
