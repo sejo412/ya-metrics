@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"net/http"
 	"runtime"
 
 	"github.com/sejo412/ya-metrics/internal/config"
@@ -9,6 +10,7 @@ import (
 type Agent struct {
 	Metrics *Metrics
 	Config  *config.AgentConfig
+	Req     *http.Request
 }
 
 type Metrics struct {

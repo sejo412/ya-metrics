@@ -28,6 +28,7 @@ func run() error {
 	pflag.StringVarP(&cfg.FileStoragePath, "fileStoragePath", "f", config.DefaultFileStoragePath, "File storage path")
 	pflag.BoolVarP(&cfg.Restore, "restore", "r", config.DefaultRestore, "Restore metrics")
 	pflag.StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", config.DefaultDatabaseDSN, "Database DSN")
+	pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {

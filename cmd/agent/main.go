@@ -25,6 +25,7 @@ func run() error {
 		"report interval (in seconds)")
 	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", config.DefaultPollInterval, "poll interval (in seconds)")
 	pflag.BoolVarP(&cfg.UseOldAPI, "oldApi", "o", config.DefaultUseOldAPI, "use old api (deprecated)")
+	pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {
@@ -42,10 +43,15 @@ func run() error {
 
 	a := agent.NewAgent(&cfg)
 	l := a.Config.Logger
+	var sign = false
+	if cfg.Key != "" {
+		sign = true
+	}
 	l.Infow("starting agent", "server", cfg.Address,
 		"reportInterval", cfg.ReportInterval,
 		"pollInterval", cfg.PollInterval,
-		"oldApi", cfg.UseOldAPI)
+		"oldApi", cfg.UseOldAPI,
+		"sign", sign)
 	ctx := context.Background()
 	return a.Run(ctx)
 }

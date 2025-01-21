@@ -21,6 +21,7 @@ const (
 	HTTPHeaderContentType                    string = "Content-Type"
 	HTTPHeaderContentEncoding                string = "Content-Encoding"
 	HTTPHeaderAcceptEncoding                 string = "Accept-Encoding"
+	HTTPHeaderSign                           string = "HashSHA256"
 )
 
 const (

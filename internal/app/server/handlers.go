@@ -57,6 +57,37 @@ func gzipHandle(next http.Handler) http.Handler {
 	})
 }
 
+func checkHashHandle(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Context().Value("key").(string)
+		if r.Method == http.MethodPost && key != "" {
+			headerHash := r.Header.Get(models.HTTPHeaderSign)
+			if headerHash == "" {
+				http.Error(w, "No sign header found", http.StatusBadRequest)
+				return
+			}
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer func() {
+				_ = r.Body.Close()
+			}()
+
+			if len(body) > 0 {
+				want := utils.Hash(body, key)
+				if want != headerHash {
+					http.Error(w, "Invalid sign", http.StatusBadRequest)
+					return
+				}
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
 	metric := models.Metric{
 		Kind:  chi.URLParam(r, "kind"),
