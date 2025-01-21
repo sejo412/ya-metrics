@@ -13,6 +13,7 @@ const (
 	DefaultReportInterval int    = 10
 	DefaultUseOldAPI      bool   = false
 	ContextTimeout               = 1 * time.Second
+	DefaultRateLimit      int    = 2
 )
 
 type AgentConfig struct {
@@ -20,6 +21,8 @@ type AgentConfig struct {
 	ReportInterval     int    `env:"REPORT_INTERVAL"`
 	PollInterval       int    `env:"POLL_INTERVAL"`
 	UseOldAPI          bool   `env:"USE_OLD_API"`
+	Key                string `env:"KEY"`
+	RateLimit          int    `env:"RATE_LIMIT"`
 	RealReportInterval time.Duration
 	RealPollInterval   time.Duration
 	Logger             *logger.Logger

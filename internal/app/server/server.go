@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
@@ -23,13 +24,15 @@ func NewRouter() *Router {
 func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router {
 	router := NewRouter()
 
-	// middlewares
-	router.Use(logs.WithLogging)
-	router.Use(gzipHandle)
-
 	// config & storage
 	router.opts.Config = opts.Config
 	router.opts.Storage = opts.Storage
+
+	// middlewares
+	router.Use(logs.WithLogging)
+	router.Use(middleware.WithValue("key", opts.Config.Key))
+	router.Use(checkHashHandle)
+	router.Use(gzipHandle)
 
 	// requests
 	router.Post("/"+models.MetricPathPostPrefix+"/{kind}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {

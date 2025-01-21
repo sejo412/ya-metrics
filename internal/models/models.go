@@ -37,6 +37,14 @@ func RuntimeMetricsMap(r *runtime.MemStats) map[string]interface{} {
 	}
 }
 
+func PSMetricsCPU(c []float64) map[string]float64 {
+	result := make(map[string]float64)
+	for i, value := range c {
+		result[MetricNamePrefixCPUUtilization+strconv.Itoa(i)] = value
+	}
+	return result
+}
+
 func ConvertV1ToV2(m *Metric) (*MetricV2, error) {
 	res := &MetricV2{
 		ID:    m.Name,

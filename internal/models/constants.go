@@ -4,14 +4,17 @@ import "time"
 
 // shared constants
 const (
-	MetricKindGauge       string = "gauge"
-	MetricKindCounter     string = "counter"
-	MetricPathPostPrefix  string = "update"
-	MetricPathPostsPrefix        = MetricPathPostPrefix + "s"
-	MetricPathGetPrefix   string = "value"
-	MetricNamePollCount   string = "PollCount"
-	MetricNameRandomValue string = "RandomValue"
-	PingPath              string = "ping"
+	MetricKindGauge                string = "gauge"
+	MetricKindCounter              string = "counter"
+	MetricPathPostPrefix           string = "update"
+	MetricPathPostsPrefix                 = MetricPathPostPrefix + "s"
+	MetricPathGetPrefix            string = "value"
+	MetricNamePollCount            string = "PollCount"
+	MetricNameRandomValue          string = "RandomValue"
+	MetricNameTotalMemory          string = "TotalMemory"
+	MetricNameFreeMemory           string = "FreeMemory"
+	MetricNamePrefixCPUUtilization string = "CPUutilization"
+	PingPath                       string = "ping"
 )
 
 const (
@@ -21,6 +24,7 @@ const (
 	HTTPHeaderContentType                    string = "Content-Type"
 	HTTPHeaderContentEncoding                string = "Content-Encoding"
 	HTTPHeaderAcceptEncoding                 string = "Accept-Encoding"
+	HTTPHeaderSign                           string = "HashSHA256"
 )
 
 const (
