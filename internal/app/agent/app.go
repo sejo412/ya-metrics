@@ -16,7 +16,7 @@ import (
 
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
-	"github.com/sejo412/ya-metrics/internal/utils"
+	"github.com/sejo412/ya-metrics/pkg/utils"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -106,7 +106,7 @@ func (a *Agent) PollPS() {
 	}
 }
 
-// Report gets metrics and run postMetric function
+// Report gets metrics and run postMetricByPath function
 func (a *Agent) Report(ctx context.Context) {
 	var err error
 	log := a.Config.Logger
@@ -133,11 +133,11 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 
 	// Try post batch
-	if !a.Config.UseOldAPI {
+	if !a.Config.PathStyle {
 		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
-			return a.postBatchMetricV2(ctx, report)
+			return a.postMetricsBatch(ctx, report)
 		})
 		if err == nil {
 			return
@@ -146,7 +146,6 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 
 	// Try post without batch
-	// old (v2 without batch) and old-old (v1) api
 	lenMetrics := len(report.Gauge) + len(report.Counter)
 	metricsChan := make(chan string, lenMetrics)
 	for name, value := range report.Gauge {
@@ -166,13 +165,13 @@ func (a *Agent) Report(ctx context.Context) {
 		go func(ch <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
 			for metric := range ch {
-				if a.Config.UseOldAPI {
+				if a.Config.PathStyle {
 					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
-						return a.postMetric(ctx, metric)
+						return a.postMetricByPath(ctx, metric)
 					})
 				} else {
 					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
-						return a.postMetricV2(ctx, metric)
+						return a.postMetric(ctx, metric)
 					})
 				}
 			}
@@ -197,8 +196,8 @@ func (a *Agent) Sign(body *[]byte, r *http.Request) {
 	r.Header.Set(models.HTTPHeaderSign, hash)
 }
 
-// postMetric push metrics to server
-func (a *Agent) postMetric(ctx context.Context, metric string) error {
+// postMetricByPath push metrics to server
+func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 	log := a.Config.Logger
 	uri := address + "/" + metric
@@ -218,7 +217,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	return nil
 }
 
-func (a *Agent) postMetricV2(ctx context.Context, metric string) error {
+func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 	log := a.Config.Logger
 	splitedMetric := strings.Split(metric, "/")
@@ -270,7 +269,7 @@ func (a *Agent) postMetricV2(ctx context.Context, metric string) error {
 	return nil
 }
 
-func (a *Agent) postBatchMetricV2(ctx context.Context, report *Report) error {
+func (a *Agent) postMetricsBatch(ctx context.Context, report *Report) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 	log := a.Config.Logger
 	metrics := reportToMetricsV2(report)

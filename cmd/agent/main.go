@@ -24,7 +24,8 @@ func run() error {
 	pflag.IntVarP(&cfg.ReportInterval, "reportInterval", "r", config.DefaultReportInterval,
 		"report interval (in seconds)")
 	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", config.DefaultPollInterval, "poll interval (in seconds)")
-	pflag.BoolVarP(&cfg.UseOldAPI, "oldApi", "o", config.DefaultUseOldAPI, "use old api (deprecated)")
+	pflag.BoolVarP(&cfg.PathStyle, "pathStyle", "o", config.DefaultPathStyle,
+		"use path style for post metrics (deprecated)")
 	pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
 	pflag.IntVarP(&cfg.RateLimit, "limit", "l", config.DefaultRateLimit, "rate limit")
 	pflag.Parse()
@@ -44,15 +45,11 @@ func run() error {
 
 	a := agent.NewAgent(&cfg)
 	l := a.Config.Logger
-	var sign = false
-	if cfg.Key != "" {
-		sign = true
-	}
 	l.Infow("starting agent", "server", cfg.Address,
 		"reportInterval", cfg.ReportInterval,
 		"pollInterval", cfg.PollInterval,
-		"oldApi", cfg.UseOldAPI,
-		"sign", sign,
+		"pathStyle", cfg.PathStyle,
+		"sign", cfg.Key != "",
 		"rateLimit", cfg.RateLimit)
 	ctx := context.Background()
 	return a.Run(ctx)

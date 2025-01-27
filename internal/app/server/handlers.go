@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sejo412/ya-metrics/internal/models"
-	"github.com/sejo412/ya-metrics/internal/utils"
+	"github.com/sejo412/ya-metrics/pkg/utils"
 )
 
 var index = `<!DOCTYPE html>

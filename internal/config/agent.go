@@ -11,7 +11,7 @@ const (
 	DefaultServerAddress  string = "localhost:8080"
 	DefaultPollInterval   int    = 2
 	DefaultReportInterval int    = 10
-	DefaultUseOldAPI      bool   = false
+	DefaultPathStyle      bool   = false
 	ContextTimeout               = 1 * time.Second
 	DefaultRateLimit      int    = 2
 )
@@ -20,7 +20,7 @@ type AgentConfig struct {
 	Address            string `env:"ADDRESS"`
 	ReportInterval     int    `env:"REPORT_INTERVAL"`
 	PollInterval       int    `env:"POLL_INTERVAL"`
-	UseOldAPI          bool   `env:"USE_OLD_API"`
+	PathStyle          bool   `env:"PATH_STYLE"`
 	Key                string `env:"KEY"`
 	RateLimit          int    `env:"RATE_LIMIT"`
 	RealReportInterval time.Duration
