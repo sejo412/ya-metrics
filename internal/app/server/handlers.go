@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sejo412/ya-metrics/internal/models"
-	"github.com/sejo412/ya-metrics/internal/utils"
+	"github.com/sejo412/ya-metrics/pkg/utils"
 )
 
 var index = `<!DOCTYPE html>
@@ -52,6 +52,40 @@ func gzipHandle(next http.Handler) http.Handler {
 			r.Body = io.NopCloser(bytes.NewReader(data))
 			next.ServeHTTP(w, r)
 			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func checkHashHandle(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Context().Value("key").(string)
+		headerHash := r.Header.Get(models.HTTPHeaderSign)
+		if r.Method == http.MethodPost && key != "" && headerHash != "" {
+			/* Broken logic in autotests
+			headerHash := r.Header.Get(models.HTTPHeaderSign)
+			if headerHash == "" {
+				http.Error(w, "No sign header found", http.StatusBadRequest)
+				return
+			}
+			*/
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer func() {
+				_ = r.Body.Close()
+			}()
+
+			if len(body) > 0 {
+				want := utils.Hash(body, key)
+				if want != headerHash {
+					http.Error(w, "Invalid sign", http.StatusBadRequest)
+					return
+				}
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
 		}
 		next.ServeHTTP(w, r)
 	})

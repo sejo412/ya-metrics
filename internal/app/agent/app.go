@@ -15,9 +15,10 @@ import (
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/config"
-	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
-	"github.com/sejo412/ya-metrics/internal/utils"
+	"github.com/sejo412/ya-metrics/pkg/utils"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 const (
@@ -56,6 +57,15 @@ func (a *Agent) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		for {
+			a.PollPS()
+			time.Sleep(a.Config.RealPollInterval)
+		}
+	}()
+	time.Sleep(1 * time.Second)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
 			// skip if function start before polling
 			if a.Metrics.Counter.PollCount == 0 {
 				continue
@@ -71,14 +81,32 @@ func (a *Agent) Run(ctx context.Context) error {
 // Poll collects runtime metrics
 func (a *Agent) Poll() {
 	cryptoRand, _ := rand.Int(rand.Reader, big.NewInt(maxRand))
-	mem := &runtime.MemStats{}
-	runtime.ReadMemStats(mem)
-	a.Metrics.Gauge.MemStats = mem
+	m := &runtime.MemStats{}
+	runtime.ReadMemStats(m)
+	a.Metrics.Gauge.MemStats = m
 	a.Metrics.Gauge.RandomValue = float64(cryptoRand.Uint64())
 	a.Metrics.Counter.PollCount = 1
 }
 
-// Report gets metrics and run postMetric function
+// PollPS collects ps metrics
+func (a *Agent) PollPS() {
+	log := a.Config.Logger
+	m, err := mem.VirtualMemory()
+	if err != nil {
+		log.Error("failed to get memory info")
+	} else {
+		a.Metrics.Gauge.PSStats.TotalMemory = float64(m.Total)
+		a.Metrics.Gauge.PSStats.FreeMemory = float64(m.Free)
+	}
+	c, err := cpu.Percent(0, true)
+	if err != nil {
+		log.Error("failed to get cpu info")
+	} else {
+		a.Metrics.Gauge.PSStats.CPUUtilization = models.PSMetricsCPU(c)
+	}
+}
+
+// Report gets metrics and run postMetricByPath function
 func (a *Agent) Report(ctx context.Context) {
 	var err error
 	log := a.Config.Logger
@@ -98,53 +126,59 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 	report.Gauge[models.MetricNameRandomValue] = a.Metrics.Gauge.RandomValue
 	report.Counter[models.MetricNamePollCount] = a.Metrics.Counter.PollCount
-
-	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
+	report.Gauge[models.MetricNameTotalMemory] = a.Metrics.Gauge.PSStats.TotalMemory
+	report.Gauge[models.MetricNameFreeMemory] = a.Metrics.Gauge.PSStats.FreeMemory
+	for core, value := range a.Metrics.Gauge.PSStats.CPUUtilization {
+		report.Gauge[core] = value
+	}
 
 	// Try post batch
-	if !a.Config.UseOldAPI {
+	if !a.Config.PathStyle {
 		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
-			return postBatchMetricV2(ctx, report, address, log)
+			return a.postMetricsBatch(ctx, report)
 		})
 		if err == nil {
 			return
 		}
+		log.Errorf("failed to post batch: %v", err)
 	}
-	log.Errorf("failed to post batch: %v", err)
 
 	// Try post without batch
-	var allMetrics []string
+	lenMetrics := len(report.Gauge) + len(report.Counter)
+	metricsChan := make(chan string, lenMetrics)
 	for name, value := range report.Gauge {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindGauge + "/" + name
-		allMetrics = append(allMetrics, fmt.Sprintf("%s/%v", mpath, value))
+		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
 	for name, value := range report.Counter {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindCounter + "/" + name
-		allMetrics = append(allMetrics, fmt.Sprintf("%s/%v", mpath, value))
+		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
+	close(metricsChan)
 
-	// old (v2 without batch) and old-old (v1) api
+	errChan := make(chan error, lenMetrics)
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(allMetrics))
-	for _, metric := range allMetrics {
+	for w := 0; w < a.Config.RateLimit; w++ {
 		wg.Add(1)
-		go func(metric string) {
+		go func(ch <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
-			if a.Config.UseOldAPI {
-				err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
-					return postMetric(ctx, metric, address, log)
-				})
-			} else {
-				err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
-					return postMetricV2(ctx, metric, address, log)
-				})
+			for metric := range ch {
+				if a.Config.PathStyle {
+					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+						return a.postMetricByPath(ctx, metric)
+					})
+				} else {
+					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+						return a.postMetric(ctx, metric)
+					})
+				}
 			}
 			if err != nil {
 				errChan <- err
 			}
-		}(metric)
+		}(metricsChan, &wg)
 	}
 	wg.Wait()
 	close(errChan)
@@ -154,8 +188,18 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
-// postMetric push metrics to server
-func postMetric(ctx context.Context, metric, address string, log *logger.Logger) error {
+func (a *Agent) Sign(body *[]byte, r *http.Request) {
+	if a.Config.Key == "" {
+		return
+	}
+	hash := utils.Hash(*body, a.Config.Key)
+	r.Header.Set(models.HTTPHeaderSign, hash)
+}
+
+// postMetricByPath push metrics to server
+func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
+	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
+	log := a.Config.Logger
 	uri := address + "/" + metric
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
@@ -173,7 +217,9 @@ func postMetric(ctx context.Context, metric, address string, log *logger.Logger)
 	return nil
 }
 
-func postMetricV2(ctx context.Context, metric, address string, log *logger.Logger) error {
+func (a *Agent) postMetric(ctx context.Context, metric string) error {
+	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
+	log := a.Config.Logger
 	splitedMetric := strings.Split(metric, "/")
 	m := models.MetricV2{
 		ID:    splitedMetric[2],
@@ -213,6 +259,7 @@ func postMetricV2(ctx context.Context, metric, address string, log *logger.Logge
 	}
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+	a.Sign(&gziped, req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed post request: %w", err)
@@ -222,7 +269,9 @@ func postMetricV2(ctx context.Context, metric, address string, log *logger.Logge
 	return nil
 }
 
-func postBatchMetricV2(ctx context.Context, report *Report, address string, log *logger.Logger) error {
+func (a *Agent) postMetricsBatch(ctx context.Context, report *Report) error {
+	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
+	log := a.Config.Logger
 	metrics := reportToMetricsV2(report)
 	body, err := json.Marshal(metrics)
 	if err != nil {
@@ -240,6 +289,7 @@ func postBatchMetricV2(ctx context.Context, report *Report, address string, log 
 	}
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
+	a.Sign(&gziped, req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
