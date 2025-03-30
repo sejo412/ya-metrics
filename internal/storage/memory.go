@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -37,7 +38,7 @@ func (s *MemoryStorage) Init(ctx context.Context) error {
 	return nil
 }
 
-func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
+func (s *MemoryStorage) Upsert(ctx context.Context, metric models.Metric) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if metric.Kind == models.MetricKindCounter {
@@ -58,9 +59,9 @@ func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) e
 	return nil
 }
 
-func (s *MemoryStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
+func (s *MemoryStorage) MassUpsert(ctx context.Context, metrics []models.Metric) error {
 	for _, metric := range metrics {
-		if err := s.AddOrUpdate(ctx, metric); err != nil {
+		if err := s.Upsert(ctx, metric); err != nil {
 			return err
 		}
 	}
@@ -80,11 +81,14 @@ func (s *MemoryStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 	for _, metric := range s.metrics {
 		metrics = append(metrics, metric)
 	}
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].Name < metrics[j].Name
+	})
 	return metrics, nil
 }
 
-func (s *MemoryStorage) Flush(dst io.Writer) error {
-	metrics, _ := s.GetAll(context.TODO())
+func (s *MemoryStorage) Flush(ctx context.Context, dst io.Writer) error {
+	metrics, _ := s.GetAll(ctx)
 	for _, metric := range metrics {
 		m, err := models.ConvertV1ToV2(&metric)
 		if err != nil {
@@ -98,7 +102,7 @@ func (s *MemoryStorage) Flush(dst io.Writer) error {
 	return nil
 }
 
-func (s *MemoryStorage) Load(src io.Reader) error {
+func (s *MemoryStorage) Load(ctx context.Context, src io.Reader) error {
 	scanner := bufio.NewScanner(src)
 	for scanner.Scan() {
 		m := models.MetricV2{}
@@ -110,7 +114,7 @@ func (s *MemoryStorage) Load(src io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = s.AddOrUpdate(context.TODO(), *res); err != nil {
+		if err = s.Upsert(ctx, *res); err != nil {
 			return fmt.Errorf("error add or update metric %s: %w", res.Name, err)
 		}
 	}

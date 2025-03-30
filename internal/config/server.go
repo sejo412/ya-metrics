@@ -29,12 +29,12 @@ type Storage interface {
 	Open(ctx context.Context, opts storage.Options) error
 	Close()
 	Ping(ctx context.Context) error
-	AddOrUpdate(context.Context, models.Metric) error
-	MassAddOrUpdate(context.Context, []models.Metric) error
+	Upsert(context.Context, models.Metric) error
+	MassUpsert(context.Context, []models.Metric) error
 	Get(ctx context.Context, kind string, name string) (models.Metric, error)
 	GetAll(ctx context.Context) ([]models.Metric, error)
-	Flush(dst io.Writer) error
-	Load(src io.Reader) error
+	Flush(ctx context.Context, dst io.Writer) error
+	Load(ctx context.Context, src io.Reader) error
 	Init(ctx context.Context) error
 }
 type Options struct {

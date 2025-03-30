@@ -27,7 +27,7 @@ func NewPostgresStorage() *PostgresStorage {
 	return &PostgresStorage{}
 }
 
-func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
+func (p *PostgresStorage) Upsert(ctx context.Context, metric models.Metric) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
@@ -53,7 +53,7 @@ func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric)
 	return nil
 }
 
-func (p *PostgresStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
+func (p *PostgresStorage) MassUpsert(ctx context.Context, metrics []models.Metric) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
@@ -153,12 +153,12 @@ func (p *PostgresStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 	return metrics, nil
 }
 
-func (p *PostgresStorage) Flush(dst io.Writer) error {
+func (p *PostgresStorage) Flush(ctx context.Context, dst io.Writer) error {
 	// not implemented yet
 	return nil
 }
 
-func (p *PostgresStorage) Load(src io.Reader) error {
+func (p *PostgresStorage) Load(ctx context.Context, src io.Reader) error {
 	// not implemented yet
 	return nil
 }

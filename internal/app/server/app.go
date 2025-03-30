@@ -57,7 +57,7 @@ func FlushingMetrics(st config.Storage, file string, interval int) {
 			log.Printf("error create file %s: %v\n", file, err)
 			return
 		}
-		if err = st.Flush(f); err != nil {
+		if err = st.Flush(context.TODO(), f); err != nil {
 			log.Printf("Error flushing metrics: %s", err.Error())
 		}
 		err = f.Close()

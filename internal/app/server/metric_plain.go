@@ -8,5 +8,5 @@ import (
 )
 
 func UpdateMetric(st config.Storage, metric models.Metric) error {
-	return st.AddOrUpdate(context.TODO(), metric)
+	return st.Upsert(context.TODO(), metric)
 }

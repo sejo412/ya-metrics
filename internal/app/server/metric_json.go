@@ -36,7 +36,7 @@ func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 		return nil, err
 	}
 	ctx := context.Background()
-	if err := st.AddOrUpdate(ctx, m); err != nil {
+	if err := st.Upsert(ctx, m); err != nil {
 		return nil, err
 	}
 	return GetMetricJSON(st, metric.MType, metric.ID)
@@ -57,7 +57,7 @@ func UpdateMetricsFromJSON(st config.Storage, req []byte) error {
 		res = append(res, *m)
 	}
 	ctx := context.Background()
-	if err := st.MassAddOrUpdate(ctx, res); err != nil {
+	if err := st.MassUpsert(ctx, res); err != nil {
 		return err
 	}
 	return nil
