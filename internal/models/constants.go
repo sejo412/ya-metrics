@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// shared constants
+// Metrics specific constants.
 const (
 	MetricKindGauge                string = "gauge"
 	MetricKindCounter              string = "counter"
@@ -17,6 +17,7 @@ const (
 	PingPath                       string = "ping"
 )
 
+// HTTP headers.
 const (
 	HTTPHeaderContentTypeApplicationJSON     string = "application/json"
 	HTTPHeaderContentTypeApplicationTextHTML string = "text/html"
@@ -27,13 +28,19 @@ const (
 	HTTPHeaderSign                           string = "HashSHA256"
 )
 
+// Ancillary constants.
 const (
 	base10        int = 10
 	metricBitSize int = 64
 )
 
+// Retries constants.
 const (
 	RetryMaxRetries int           = 3
 	RetryInitDelay  time.Duration = 1 * time.Second
 	RetryDeltaDelay time.Duration = 2 * time.Second
+)
+
+const (
+	TotalCountMetrics int = 43 // total metrics count
 )

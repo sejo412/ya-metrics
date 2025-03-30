@@ -5,13 +5,17 @@ import (
 	"strconv"
 )
 
+// Metric describes metric object.
 type Metric struct {
-	Kind  string
-	Name  string
+	// Kind - gauge or counter
+	Kind string
+	// Name - metric name
+	Name string
+	// Value - metric value
 	Value string
 }
 
-// GetMetricValueString returns string of metric value
+// GetMetricValueString returns string of metric value.
 func GetMetricValueString(metric Metric) (string, error) {
 	switch metric.Kind {
 	case MetricKindGauge:
@@ -31,7 +35,8 @@ func GetMetricValueString(metric Metric) (string, error) {
 	}
 }
 
-// RoundFloatToString round float and convert it to string (trims trailing zeroes)
+// RoundFloatToString round float and convert it to string.
+// Trims trailing zeroes.
 func RoundFloatToString(val float64) string {
 	ratio := math.Pow(float64(base10), float64(3))
 	res := math.Round(val*ratio) / ratio

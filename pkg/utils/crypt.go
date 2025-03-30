@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 )
 
+// Hash returns string hashed by key.
 func Hash(data []byte, key string) string {
 	h := hmac.New(sha256.New, []byte(key))
 	h.Write(data)

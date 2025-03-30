@@ -12,7 +12,7 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
-// CheckMetricKind returns error if metric value does not match kind
+// CheckMetricKind returns error if metric value does not match kind.
 func CheckMetricKind(metric models.Metric) error {
 	_, err := models.GetMetricValueString(metric)
 	switch {
@@ -26,6 +26,7 @@ func CheckMetricKind(metric models.Metric) error {
 	return nil
 }
 
+// GetMetricValue returns metric value by name.
 func GetMetricValue(st config.Storage, name string) (string, error) {
 	metric, err := st.Get(context.TODO(), "", name)
 	if err != nil {
@@ -34,6 +35,7 @@ func GetMetricValue(st config.Storage, name string) (string, error) {
 	return models.GetMetricValueString(metric)
 }
 
+// GetAllMetricValues returns all metrics.
 func GetAllMetricValues(st config.Storage) map[string]string {
 	ctx := context.Background()
 	result := make(map[string]string)
@@ -50,6 +52,7 @@ func GetAllMetricValues(st config.Storage) map[string]string {
 	return result
 }
 
+// FlushingMetrics saves metrics to file.
 func FlushingMetrics(st config.Storage, file string, interval int) {
 	for {
 		f, err := os.Create(file)
@@ -57,7 +60,7 @@ func FlushingMetrics(st config.Storage, file string, interval int) {
 			log.Printf("error create file %s: %v\n", file, err)
 			return
 		}
-		if err = st.Flush(f); err != nil {
+		if err = st.Flush(context.TODO(), f); err != nil {
 			log.Printf("Error flushing metrics: %s", err.Error())
 		}
 		err = f.Close()

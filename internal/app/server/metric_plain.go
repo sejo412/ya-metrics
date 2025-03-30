@@ -7,6 +7,7 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
+// UpdateMetric inserts or updates MetricV1
 func UpdateMetric(st config.Storage, metric models.Metric) error {
-	return st.AddOrUpdate(context.TODO(), metric)
+	return st.Upsert(context.TODO(), metric)
 }

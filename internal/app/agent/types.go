@@ -7,32 +7,32 @@ import (
 )
 
 type Agent struct {
-	Metrics *Metrics
+	Metrics *metrics
 	Config  *config.AgentConfig
 }
 
-type Metrics struct {
-	Gauge   Gauge
-	Counter Counter
+type metrics struct {
+	gauge   gauge
+	counter counter
 }
 
-type Gauge struct {
-	MemStats    *runtime.MemStats
-	RandomValue float64
-	PSStats     PSStats
+type gauge struct {
+	memStats    *runtime.MemStats
+	randomValue float64
+	psStats     psStats
 }
 
-type Counter struct {
-	PollCount int64
+type counter struct {
+	pollCount int64
 }
 
-type Report struct {
-	Gauge   map[string]float64
-	Counter map[string]int64
+type report struct {
+	gauge   map[string]float64
+	counter map[string]int64
 }
 
-type PSStats struct {
-	TotalMemory    float64
-	FreeMemory     float64
-	CPUUtilization map[string]float64
+type psStats struct {
+	totalMemory    float64
+	freeMemory     float64
+	cpuUtilization map[string]float64
 }

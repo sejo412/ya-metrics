@@ -5,6 +5,7 @@ import (
 	"strconv"
 )
 
+// RuntimeMetricsMap returns mapping for runtime metrics.
 func RuntimeMetricsMap(r *runtime.MemStats) map[string]interface{} {
 	return map[string]interface{}{
 		"Alloc":         r.Alloc,
@@ -37,6 +38,7 @@ func RuntimeMetricsMap(r *runtime.MemStats) map[string]interface{} {
 	}
 }
 
+// PSMetricsCPU returns map with CPU utilization.
 func PSMetricsCPU(c []float64) map[string]float64 {
 	result := make(map[string]float64)
 	for i, value := range c {
@@ -45,6 +47,7 @@ func PSMetricsCPU(c []float64) map[string]float64 {
 	return result
 }
 
+// ConvertV1ToV2 converts V1 api to V2 for backward compatibility.
 func ConvertV1ToV2(m *Metric) (*MetricV2, error) {
 	res := &MetricV2{
 		ID:    m.Name,
@@ -67,6 +70,7 @@ func ConvertV1ToV2(m *Metric) (*MetricV2, error) {
 	return res, nil
 }
 
+// ConvertV2ToV1 converts V2 api to V1 for backward compatibility.
 func ConvertV2ToV1(m *MetricV2) (*Metric, error) {
 	metric := &Metric{
 		Kind: m.MType,
