@@ -307,7 +307,7 @@ var benchStorage *MemoryStorage
 func BenchmarkMemoryStorage_MassUpsert(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		tmpSlice := genMetrics(1000)
+		tmpSlice := genMetrics(models.TotalCountMetrics)
 		b.StartTimer()
 		benchStorage = NewMemoryStorage()
 		_ = benchStorage.MassUpsert(context.Background(), tmpSlice)

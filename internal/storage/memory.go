@@ -19,7 +19,7 @@ type MemoryStorage struct {
 }
 
 func NewMemoryStorage() *MemoryStorage {
-	metrics := make(map[string]models.Metric)
+	metrics := make(map[string]models.Metric, models.TotalCountMetrics)
 	return &MemoryStorage{metrics: metrics}
 }
 

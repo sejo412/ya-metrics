@@ -37,3 +37,7 @@ const (
 	RetryInitDelay  time.Duration = 1 * time.Second
 	RetryDeltaDelay time.Duration = 2 * time.Second
 )
+
+const (
+	TotalCountMetrics int = 43
+)
