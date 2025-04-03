@@ -31,3 +31,16 @@ git fetch template && git checkout template/main .github
 
 Подробнее про локальный и автоматический запуск читайте в [README автотестов](https://github.com/Yandex-Practicum/go-autotests).
 
+## SPRINT-7
+
+### Оптимизации
+
+```
+ func NewMemoryStorage() *MemoryStorage {
+-       metrics := make(map[string]models.Metric)
++       metrics := make(map[string]models.Metric, models.TotalCountMetrics)
+        return &MemoryStorage{metrics: metrics}
+ }
+```
+
+Здесь ограничился минимальными усилиями, просто чтобы попробовать инструмент. Не вижу смысла выдавливать слезы из оптимизации такого проекта.

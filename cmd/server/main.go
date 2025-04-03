@@ -5,10 +5,6 @@ import (
 	"fmt"
 	_ "net/http/pprof"
 	"os"
-	"os/signal"
-	"runtime"
-	"runtime/pprof"
-	"syscall"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/sejo412/ya-metrics/internal/app/server"
@@ -20,7 +16,6 @@ import (
 )
 
 func main() {
-	// go shutdownWithPprof()
 	if err := run(); err != nil {
 		panic(err)
 	}
@@ -108,21 +103,4 @@ func run() error {
 		Storage: store,
 	},
 		lm)
-}
-
-func shutdownWithPprof() {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	s := <-quit
-	fmt.Println("\nStopping server: ", s)
-	fmem, err := os.Create(`profiles/base.pprof`)
-	if err != nil {
-		panic(err)
-	}
-	defer fmem.Close()
-	runtime.GC()
-	if err := pprof.WriteHeapProfile(fmem); err != nil {
-		panic(err)
-	}
-	os.Exit(0)
 }
