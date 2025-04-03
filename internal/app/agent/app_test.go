@@ -1,8 +1,6 @@
 package agent
 
 import (
-	"context"
-	"net/http"
 	"reflect"
 	"testing"
 
@@ -101,123 +99,6 @@ func TestAgent_PollPS(t *testing.T) {
 				Config:  tt.fields.Config,
 			}
 			a.PollPS()
-		})
-	}
-}
-
-func TestAgent_Sign(t *testing.T) {
-	type fields struct {
-		Metrics *metrics
-		Config  *config.AgentConfig
-	}
-	type args struct {
-		body *[]byte
-		r    *http.Request
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &Agent{
-				Metrics: tt.fields.Metrics,
-				Config:  tt.fields.Config,
-			}
-			a.Sign(tt.args.body, tt.args.r)
-		})
-	}
-}
-
-func TestAgent_postMetric(t *testing.T) {
-	type fields struct {
-		Metrics *metrics
-		Config  *config.AgentConfig
-	}
-	type args struct {
-		ctx    context.Context
-		metric string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &Agent{
-				Metrics: tt.fields.Metrics,
-				Config:  tt.fields.Config,
-			}
-			if err := a.postMetric(tt.args.ctx, tt.args.metric); (err != nil) != tt.wantErr {
-				t.Errorf("postMetric() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestAgent_postMetricByPath(t *testing.T) {
-	type fields struct {
-		Metrics *metrics
-		Config  *config.AgentConfig
-	}
-	type args struct {
-		ctx    context.Context
-		metric string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &Agent{
-				Metrics: tt.fields.Metrics,
-				Config:  tt.fields.Config,
-			}
-			if err := a.postMetricByPath(tt.args.ctx, tt.args.metric); (err != nil) != tt.wantErr {
-				t.Errorf("postMetricByPath() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestAgent_postMetricsBatch(t *testing.T) {
-	type fields struct {
-		Metrics *metrics
-		Config  *config.AgentConfig
-	}
-	type args struct {
-		ctx    context.Context
-		report *report
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &Agent{
-				Metrics: tt.fields.Metrics,
-				Config:  tt.fields.Config,
-			}
-			if err := a.postMetricsBatch(tt.args.ctx, tt.args.report); (err != nil) != tt.wantErr {
-				t.Errorf("postMetricsBatch() error = %v, wantErr %v", err, tt.wantErr)
-			}
 		})
 	}
 }
