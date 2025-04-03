@@ -331,3 +331,31 @@ func genMetrics(count int) []models.Metric {
 	}
 	return metrics
 }
+
+func TestMemoryStorage_Open(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		opts Options
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "open OK",
+			args: args{
+				ctx: context.Background(),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &MemoryStorage{}
+			if err := s.Open(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
+				t.Errorf("Open() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
