@@ -252,11 +252,11 @@ func TestMemoryStorage_Flush(t *testing.T) {
 	}{
 		{
 			name: "flush OK",
-			wantDst: `{"id":"testCounter1","type":"counter","delta":3}
-{"id":"testCounter2","type":"counter","delta":1}
-{"id":"testGauge1","type":"gauge","value":9999.11}
-{"id":"testGauge2","type":"gauge","value":9999.22}
-{"id":"testGauge3","type":"gauge","value":9999.33}
+			wantDst: `{"delta":3,"id":"testCounter1","type":"counter"}
+{"delta":1,"id":"testCounter2","type":"counter"}
+{"value":9999.11,"id":"testGauge1","type":"gauge"}
+{"value":9999.22,"id":"testGauge2","type":"gauge"}
+{"value":9999.33,"id":"testGauge3","type":"gauge"}
 `,
 			wantErr: false,
 		},
@@ -281,8 +281,8 @@ func TestMemoryStorage_Load(t *testing.T) {
 		src io.Reader
 	}
 	tests := []struct {
-		name    string
 		args    args
+		name    string
 		wantErr bool
 	}{
 		{

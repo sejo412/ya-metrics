@@ -81,8 +81,8 @@ func TestRoundFloatToString(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		args args
 		want string
+		args args
 	}{
 		// TODO: Add test cases.
 	}

@@ -15,8 +15,8 @@ import (
 
 // MemoryStorage is backend for RAM.
 type MemoryStorage struct {
-	mutex   sync.Mutex
 	metrics map[string]models.Metric
+	mutex   sync.Mutex
 }
 
 // NewMemoryStorage returns new MemoryStorage object.

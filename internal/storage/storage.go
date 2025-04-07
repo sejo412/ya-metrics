@@ -31,8 +31,6 @@ type Options struct {
 	Scheme string
 	// Host - host for connect to backend.
 	Host string
-	// Port - TCP port for connect to backend.
-	Port int
 	// Username - login for connect to backend.
 	Username string
 	// Password - password for connect to backend.
@@ -41,6 +39,8 @@ type Options struct {
 	Database string
 	// SSLMode - settings for SSL.
 	SSLMode string
+	// Port - TCP port for connect to backend.
+	Port int
 }
 
 // ParseDSN parses DSN string to Options type.
