@@ -38,8 +38,8 @@ func TestAgent_Poll(t *testing.T) {
 		Config  *config.AgentConfig
 	}
 	tests := []struct {
-		name   string
 		fields fields
+		name   string
 	}{
 		{
 			name: "Poll",
@@ -73,8 +73,8 @@ func TestAgent_PollPS(t *testing.T) {
 		Config  *config.AgentConfig
 	}
 	tests := []struct {
-		name   string
 		fields fields
+		name   string
 	}{
 		{
 			name: "PollPS",

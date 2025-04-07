@@ -1,5 +1,5 @@
 .PHONY: all
-all: server agent
+all: server agent staticlint
 
 .PHONY: server
 server:
@@ -9,6 +9,10 @@ server:
 agent:
 	go build -o ./cmd/agent/agent ./cmd/agent/
 
+.PHONY: staticlint
+staticlint:
+	go build -o ./cmd/staticlint/staticlint ./cmd/staticlint/
+
 .PHONY: tests
 tests:
 	echo "example: make tests t=TestIteration2"
@@ -16,7 +20,11 @@ tests:
 
 .PHONY: statictest
 statictest:
-	go vet -vettool=$(which statictest) ./...
+	go vet -vettool=$$(which statictest) ./...
+
+.PHONY: statictest2
+statictest2:
+	go vet -vettool=./cmd/staticlint/staticlint ./...
 
 .PHONY: lint
 lint:

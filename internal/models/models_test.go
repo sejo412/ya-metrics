@@ -18,9 +18,9 @@ func TestConvertV1ToV2(t *testing.T) {
 		m *Metric
 	}
 	tests := []struct {
-		name    string
 		args    args
 		want    *MetricV2
+		name    string
 		wantErr bool
 	}{
 		{
@@ -99,9 +99,9 @@ func TestConvertV2ToV1(t *testing.T) {
 		m *MetricV2
 	}
 	tests := []struct {
-		name    string
 		args    args
 		want    *Metric
+		name    string
 		wantErr bool
 	}{
 		{

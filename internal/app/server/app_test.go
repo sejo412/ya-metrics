@@ -15,10 +15,10 @@ func TestParsePostUpdateRequestJSON(t *testing.T) {
 		request []byte
 	}
 	tests := []struct {
-		name    string
-		args    args
 		want    models.MetricV2
 		wantErr error
+		name    string
+		args    args
 	}{
 		{
 			name: "Valid JSON",

@@ -29,8 +29,8 @@ const notFound = "404 page not found"
 
 func Test_handleUpdate(t *testing.T) {
 	type want struct {
-		code     int
 		response string
+		code     int
 	}
 	tests := []struct {
 		name    string
@@ -129,7 +129,9 @@ func Test_handleUpdate(t *testing.T) {
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodPost, tt.request, nil, nil)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
 			assert.Equal(t, tt.want.response, body, tt.name)
 		})
@@ -138,8 +140,8 @@ func Test_handleUpdate(t *testing.T) {
 func Test_getIndex(t *testing.T) {
 	// notFound := "404 page not found"
 	type want struct {
-		code     int
 		response string
+		code     int
 	}
 	tests := []struct {
 		name    string
@@ -172,7 +174,9 @@ func Test_getIndex(t *testing.T) {
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
 			assert.Contains(t, body, tt.want.response, tt.name)
 		})
@@ -199,15 +203,17 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, header 
 		t.Fatal(err)
 		return nil, ""
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	result, _ := strings.CutSuffix(string(respBody), "\n")
 	return resp, result
 }
 
 func Test_postUpdateJSON(t *testing.T) {
 	type want struct {
-		code     int
 		response string
+		code     int
 	}
 	tests := []struct {
 		name    string
@@ -259,7 +265,9 @@ func Test_postUpdateJSON(t *testing.T) {
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
 			assert.Equal(t, tt.want.response, body, tt.name)
 		})
