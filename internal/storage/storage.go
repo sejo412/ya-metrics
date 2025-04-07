@@ -11,7 +11,9 @@ import (
 const (
 	ctxTimeout                 = 10 * time.Second
 	defaultPostgresPort int    = 5432
-	MemoryScheme        string = "memory"
+	MemoryScheme        string = "memory"     // memory storage scheme
+	PostgresSchemeLong  string = "postgresql" // long string for postgres scheme
+	PostgresSchemeShort string = "postgres"   // short string for postgres scheme
 )
 
 const (
@@ -23,16 +25,25 @@ const (
 	sslModeVerifyFull = "verify-full"
 )
 
+// Options defines settings to communicate with Storage.
 type Options struct {
-	Scheme   string
-	Host     string
-	Port     int
+	// Scheme - memory or postgres.
+	Scheme string
+	// Host - host for connect to backend.
+	Host string
+	// Port - TCP port for connect to backend.
+	Port int
+	// Username - login for connect to backend.
 	Username string
+	// Password - password for connect to backend.
 	Password string
+	// Database - database to use.
 	Database string
-	SSLMode  string
+	// SSLMode - settings for SSL.
+	SSLMode string
 }
 
+// ParseDSN parses DSN string to Options type.
 func ParseDSN(dsn string) (opts Options, err error) {
 	u, err := url.Parse(dsn)
 	if err != nil {
@@ -44,7 +55,7 @@ func ParseDSN(dsn string) (opts Options, err error) {
 		return Options{
 			Scheme: MemoryScheme,
 		}, nil
-	case "postgresql", "postgres":
+	case PostgresSchemeLong, PostgresSchemeShort:
 		port = defaultPostgresPort
 	default:
 		return opts, fmt.Errorf("unsupported database scheme: %s", u.Scheme)

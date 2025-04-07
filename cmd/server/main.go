@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/caarlos0/env/v6"
@@ -81,7 +82,7 @@ func run() error {
 			skipRestore = true
 		}
 		if !skipRestore {
-			if err = store.Load(f); err != nil {
+			if err = store.Load(context.TODO(), f); err != nil {
 				log.Errorw("error load file",
 					"file", cfg.FileStoragePath)
 			}

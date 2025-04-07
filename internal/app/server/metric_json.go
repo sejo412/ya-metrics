@@ -9,7 +9,7 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
-// UpdateMetricFromJSON updates metric from incoming json
+// UpdateMetricFromJSON updates metric from incoming json.
 func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 	var (
 		metric models.MetricV2
@@ -36,13 +36,13 @@ func UpdateMetricFromJSON(st config.Storage, req []byte) ([]byte, error) {
 		return nil, err
 	}
 	ctx := context.Background()
-	if err := st.AddOrUpdate(ctx, m); err != nil {
+	if err := st.Upsert(ctx, m); err != nil {
 		return nil, err
 	}
 	return GetMetricJSON(st, metric.MType, metric.ID)
 }
 
-// UpdateMetricsFromJSON updates metrics from incoming JSON slice
+// UpdateMetricsFromJSON updates metrics from incoming JSON slice.
 func UpdateMetricsFromJSON(st config.Storage, req []byte) error {
 	parsedMetrics, err := ParsePostRequestJSONSlice(req)
 	if err != nil {
@@ -57,13 +57,13 @@ func UpdateMetricsFromJSON(st config.Storage, req []byte) error {
 		res = append(res, *m)
 	}
 	ctx := context.Background()
-	if err := st.MassAddOrUpdate(ctx, res); err != nil {
+	if err := st.MassUpsert(ctx, res); err != nil {
 		return err
 	}
 	return nil
 }
 
-// GetMetricJSON return JSON representation metric by name
+// GetMetricJSON return JSON representation metric by name.
 func GetMetricJSON(st config.Storage, kind, name string) ([]byte, error) {
 	ctx := context.Background()
 	metric, err := st.Get(ctx, kind, name)
@@ -77,7 +77,7 @@ func GetMetricJSON(st config.Storage, kind, name string) ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// ParsePostRequestJSON converts incoming json to MetricV2 type
+// ParsePostRequestJSON converts incoming json to MetricV2 type.
 func ParsePostRequestJSON(request []byte) (models.MetricV2, error) {
 	metrics := models.MetricV2{}
 	if err := json.Unmarshal(request, &metrics); err != nil {
@@ -86,7 +86,7 @@ func ParsePostRequestJSON(request []byte) (models.MetricV2, error) {
 	return metrics, nil
 }
 
-// ParsePostRequestJSONSlice coverts incoming json to []MetricV2
+// ParsePostRequestJSONSlice coverts incoming json to []MetricV2.
 func ParsePostRequestJSONSlice(request []byte) ([]models.MetricV2, error) {
 	metrics := make([]models.MetricV2, 0)
 	if err := json.Unmarshal(request, &metrics); err != nil {

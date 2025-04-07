@@ -13,21 +13,25 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
+// Table names for metrics.
 const (
-	TblGauges   = "metric_gauges"
-	TblCounters = "metric_counters"
-	TblMapping  = "metric_mapping"
+	TblGauges   = "metric_gauges"   // table name for Gauge metrics
+	TblCounters = "metric_counters" // table name for Counter metrics
+	TblMapping  = "metric_mapping"  // table name for mapping metrics
 )
 
+// PostgresStorage is backend for PostgresSQL.
 type PostgresStorage struct {
 	Client *sql.DB
 }
 
+// NewPostgresStorage returns new PostgresStorage object.
 func NewPostgresStorage() *PostgresStorage {
 	return &PostgresStorage{}
 }
 
-func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
+// Upsert inserts or updates metric.
+func (p *PostgresStorage) Upsert(ctx context.Context, metric models.Metric) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
@@ -53,7 +57,8 @@ func (p *PostgresStorage) AddOrUpdate(ctx context.Context, metric models.Metric)
 	return nil
 }
 
-func (p *PostgresStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
+// MassUpsert inserts or updates slice of metrics.
+func (p *PostgresStorage) MassUpsert(ctx context.Context, metrics []models.Metric) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
@@ -82,6 +87,7 @@ func (p *PostgresStorage) MassAddOrUpdate(ctx context.Context, metrics []models.
 	return nil
 }
 
+// Get returns metric by name.
 func (p *PostgresStorage) Get(ctx context.Context, kind, name string) (models.Metric, error) {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -120,6 +126,7 @@ func (p *PostgresStorage) Get(ctx context.Context, kind, name string) (models.Me
 	}, nil
 }
 
+// GetAll returns slice of all metrics.
 func (p *PostgresStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -153,17 +160,19 @@ func (p *PostgresStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 	return metrics, nil
 }
 
-func (p *PostgresStorage) Flush(dst io.Writer) error {
+// Flush not implemented for PostgresSQL storage.
+func (p *PostgresStorage) Flush(ctx context.Context, dst io.Writer) error {
 	// not implemented yet
 	return nil
 }
 
-func (p *PostgresStorage) Load(src io.Reader) error {
+// Load not implemented for PostgresSQL storage.
+func (p *PostgresStorage) Load(ctx context.Context, src io.Reader) error {
 	// not implemented yet
 	return nil
 }
 
-// Open tries open connections to database with retry
+// Open tries open connections to database with retry.
 func (p *PostgresStorage) Open(ctx context.Context, opts Options) error {
 	ps := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		opts.Host, opts.Port, opts.Username, opts.Password, opts.Database, opts.SSLMode)
@@ -182,14 +191,16 @@ func (p *PostgresStorage) Open(ctx context.Context, opts Options) error {
 	return fmt.Errorf("failed to open postgres connection: %w", lastErr)
 }
 
+// Close closes connection.
 func (p *PostgresStorage) Close() {
 	_ = p.Client.Close()
 }
 
-// Ping tries ping with retry
-// we want ping before init scheme, upsert only and using /ping location
-// user doesn't want waiting 1s + 3s + 5s before getting error
-// we don't interesting what happens with database
+// Ping tries ping with retry.
+//
+// We want ping before init scheme, upsert only and using /ping location.
+// User doesn't want waiting 1s + 3s + 5s before getting error.
+// We don't interesting what happens with database.
 func (p *PostgresStorage) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -207,6 +218,7 @@ func (p *PostgresStorage) Ping(ctx context.Context) error {
 	return fmt.Errorf("error: All attempts failed [%d], last error is: %w", models.RetryMaxRetries, lastErr)
 }
 
+// Init creates database schema.
 func (p *PostgresStorage) Init(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()

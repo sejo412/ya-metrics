@@ -6,38 +6,46 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"sync"
 
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
+// MemoryStorage is backend for RAM.
 type MemoryStorage struct {
 	mutex   sync.Mutex
 	metrics map[string]models.Metric
 }
 
+// NewMemoryStorage returns new MemoryStorage object.
 func NewMemoryStorage() *MemoryStorage {
-	metrics := make(map[string]models.Metric)
+	metrics := make(map[string]models.Metric, models.TotalCountMetrics)
 	return &MemoryStorage{metrics: metrics}
 }
 
+// Open not implemented for RAM.
 func (s *MemoryStorage) Open(ctx context.Context, opts Options) error {
 	return nil
 }
 
+// Close not implemented for RAM.
 func (s *MemoryStorage) Close() {
 }
 
+// Ping not implemented for RAM.
 func (s *MemoryStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
+// Init not implemented for RAM.
 func (s *MemoryStorage) Init(ctx context.Context) error {
 	return nil
 }
 
-func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) error {
+// Upsert inserts or updates metric.
+func (s *MemoryStorage) Upsert(ctx context.Context, metric models.Metric) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if metric.Kind == models.MetricKindCounter {
@@ -58,15 +66,18 @@ func (s *MemoryStorage) AddOrUpdate(ctx context.Context, metric models.Metric) e
 	return nil
 }
 
-func (s *MemoryStorage) MassAddOrUpdate(ctx context.Context, metrics []models.Metric) error {
+// MassUpsert inserts or updates slice of metrics.
+func (s *MemoryStorage) MassUpsert(ctx context.Context, metrics []models.Metric) error {
 	for _, metric := range metrics {
-		if err := s.AddOrUpdate(ctx, metric); err != nil {
+		if err := s.Upsert(ctx, metric); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// Get returns metric by name.
+// kind not implemented for RAM storage.
 func (s *MemoryStorage) Get(ctx context.Context, kind, name string) (models.Metric, error) {
 	// kind not used in this implementation, because name is "primary key" for MemoryStorage
 	if metric, ok := s.metrics[name]; ok {
@@ -75,16 +86,21 @@ func (s *MemoryStorage) Get(ctx context.Context, kind, name string) (models.Metr
 	return models.Metric{}, models.ErrHTTPNotFound
 }
 
+// GetAll returns slice of all metrics.
 func (s *MemoryStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
 	metrics := make([]models.Metric, 0, len(s.metrics))
 	for _, metric := range s.metrics {
 		metrics = append(metrics, metric)
 	}
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].Name < metrics[j].Name
+	})
 	return metrics, nil
 }
 
-func (s *MemoryStorage) Flush(dst io.Writer) error {
-	metrics, _ := s.GetAll(context.TODO())
+// Flush saves metrics to destination.
+func (s *MemoryStorage) Flush(ctx context.Context, dst io.Writer) error {
+	metrics, _ := s.GetAll(ctx)
 	for _, metric := range metrics {
 		m, err := models.ConvertV1ToV2(&metric)
 		if err != nil {
@@ -98,7 +114,8 @@ func (s *MemoryStorage) Flush(dst io.Writer) error {
 	return nil
 }
 
-func (s *MemoryStorage) Load(src io.Reader) error {
+// Load loads metrics from source.
+func (s *MemoryStorage) Load(ctx context.Context, src io.Reader) error {
 	scanner := bufio.NewScanner(src)
 	for scanner.Scan() {
 		m := models.MetricV2{}
@@ -110,7 +127,7 @@ func (s *MemoryStorage) Load(src io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = s.AddOrUpdate(context.TODO(), *res); err != nil {
+		if err = s.Upsert(ctx, *res); err != nil {
 			return fmt.Errorf("error add or update metric %s: %w", res.Name, err)
 		}
 	}

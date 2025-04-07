@@ -26,14 +26,15 @@ const (
 	baseInt = 10
 )
 
+// NewAgent returns new Agent object.
 func NewAgent(cfg *config.AgentConfig) *Agent {
-	m := &Metrics{
-		Gauge: Gauge{
-			MemStats:    nil,
-			RandomValue: 0,
+	m := &metrics{
+		gauge: gauge{
+			memStats:    nil,
+			randomValue: 0,
 		},
-		Counter: Counter{
-			PollCount: 0,
+		counter: counter{
+			pollCount: 0,
 		},
 	}
 	return &Agent{
@@ -42,6 +43,7 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 	}
 }
 
+// Run starts agent application.
 func (a *Agent) Run(ctx context.Context) error {
 	var err error
 	var wg sync.WaitGroup
@@ -67,7 +69,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		defer wg.Done()
 		for {
 			// skip if function start before polling
-			if a.Metrics.Counter.PollCount == 0 {
+			if a.Metrics.counter.pollCount == 0 {
 				continue
 			}
 			a.Report(ctx)
@@ -78,58 +80,58 @@ func (a *Agent) Run(ctx context.Context) error {
 	return err
 }
 
-// Poll collects runtime metrics
+// Poll collects runtime metrics.
 func (a *Agent) Poll() {
 	cryptoRand, _ := rand.Int(rand.Reader, big.NewInt(maxRand))
 	m := &runtime.MemStats{}
 	runtime.ReadMemStats(m)
-	a.Metrics.Gauge.MemStats = m
-	a.Metrics.Gauge.RandomValue = float64(cryptoRand.Uint64())
-	a.Metrics.Counter.PollCount = 1
+	a.Metrics.gauge.memStats = m
+	a.Metrics.gauge.randomValue = float64(cryptoRand.Uint64())
+	a.Metrics.counter.pollCount = 1
 }
 
-// PollPS collects ps metrics
+// PollPS collects ps metrics.
 func (a *Agent) PollPS() {
 	log := a.Config.Logger
 	m, err := mem.VirtualMemory()
 	if err != nil {
 		log.Error("failed to get memory info")
 	} else {
-		a.Metrics.Gauge.PSStats.TotalMemory = float64(m.Total)
-		a.Metrics.Gauge.PSStats.FreeMemory = float64(m.Free)
+		a.Metrics.gauge.psStats.totalMemory = float64(m.Total)
+		a.Metrics.gauge.psStats.freeMemory = float64(m.Free)
 	}
 	c, err := cpu.Percent(0, true)
 	if err != nil {
 		log.Error("failed to get cpu info")
 	} else {
-		a.Metrics.Gauge.PSStats.CPUUtilization = models.PSMetricsCPU(c)
+		a.Metrics.gauge.psStats.cpuUtilization = models.PSMetricsCPU(c)
 	}
 }
 
-// Report gets metrics and run postMetricByPath function
+// Report gets metrics and run postMetricByPath function.
 func (a *Agent) Report(ctx context.Context) {
 	var err error
 	log := a.Config.Logger
-	report := new(Report)
-	report.Gauge = make(map[string]float64)
-	report.Counter = make(map[string]int64)
-	runtimeMetrics := models.RuntimeMetricsMap(a.Metrics.Gauge.MemStats)
+	report := new(report)
+	report.gauge = make(map[string]float64)
+	report.counter = make(map[string]int64)
+	runtimeMetrics := models.RuntimeMetricsMap(a.Metrics.gauge.memStats)
 	for key, value := range runtimeMetrics {
 		switch v := value.(type) {
 		case uint64:
-			report.Gauge[key] = float64(v)
+			report.gauge[key] = float64(v)
 		case uint32:
-			report.Gauge[key] = float64(v)
+			report.gauge[key] = float64(v)
 		case float64:
-			report.Gauge[key] = v
+			report.gauge[key] = v
 		}
 	}
-	report.Gauge[models.MetricNameRandomValue] = a.Metrics.Gauge.RandomValue
-	report.Counter[models.MetricNamePollCount] = a.Metrics.Counter.PollCount
-	report.Gauge[models.MetricNameTotalMemory] = a.Metrics.Gauge.PSStats.TotalMemory
-	report.Gauge[models.MetricNameFreeMemory] = a.Metrics.Gauge.PSStats.FreeMemory
-	for core, value := range a.Metrics.Gauge.PSStats.CPUUtilization {
-		report.Gauge[core] = value
+	report.gauge[models.MetricNameRandomValue] = a.Metrics.gauge.randomValue
+	report.counter[models.MetricNamePollCount] = a.Metrics.counter.pollCount
+	report.gauge[models.MetricNameTotalMemory] = a.Metrics.gauge.psStats.totalMemory
+	report.gauge[models.MetricNameFreeMemory] = a.Metrics.gauge.psStats.freeMemory
+	for core, value := range a.Metrics.gauge.psStats.cpuUtilization {
+		report.gauge[core] = value
 	}
 
 	// Try post batch
@@ -146,13 +148,13 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 
 	// Try post without batch
-	lenMetrics := len(report.Gauge) + len(report.Counter)
+	lenMetrics := len(report.gauge) + len(report.counter)
 	metricsChan := make(chan string, lenMetrics)
-	for name, value := range report.Gauge {
+	for name, value := range report.gauge {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindGauge + "/" + name
 		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
-	for name, value := range report.Counter {
+	for name, value := range report.counter {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindCounter + "/" + name
 		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
@@ -188,6 +190,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
+// Sign signs data with key.
 func (a *Agent) Sign(body *[]byte, r *http.Request) {
 	if a.Config.Key == "" {
 		return
@@ -196,7 +199,7 @@ func (a *Agent) Sign(body *[]byte, r *http.Request) {
 	r.Header.Set(models.HTTPHeaderSign, hash)
 }
 
-// postMetricByPath push metrics to server
+// postMetricByPath push metrics to server.
 func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 	log := a.Config.Logger
@@ -269,7 +272,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	return nil
 }
 
-func (a *Agent) postMetricsBatch(ctx context.Context, report *Report) error {
+func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
 	log := a.Config.Logger
 	metrics := reportToMetricsV2(report)
@@ -299,9 +302,9 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *Report) error {
 	return nil
 }
 
-func reportToMetricsV2(report *Report) []models.MetricV2 {
-	metrics := make([]models.MetricV2, 0, len(report.Gauge)+len(report.Counter))
-	for name, value := range report.Gauge {
+func reportToMetricsV2(report *report) []models.MetricV2 {
+	metrics := make([]models.MetricV2, 0, len(report.gauge)+len(report.counter))
+	for name, value := range report.gauge {
 		metric := models.MetricV2{
 			ID:    name,
 			MType: models.MetricKindGauge,
@@ -309,7 +312,7 @@ func reportToMetricsV2(report *Report) []models.MetricV2 {
 		}
 		metrics = append(metrics, metric)
 	}
-	for name, value := range report.Counter {
+	for name, value := range report.counter {
 		metric := models.MetricV2{
 			ID:    name,
 			MType: models.MetricKindCounter,

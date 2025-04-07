@@ -6,6 +6,7 @@ import (
 	"fmt"
 )
 
+// Decompress returns unzipped data or error.
 func Decompress(data []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -21,6 +22,7 @@ func Decompress(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Compress returns gzipped data or error.
 func Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	w, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)

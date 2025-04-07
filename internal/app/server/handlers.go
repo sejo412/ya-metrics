@@ -112,7 +112,7 @@ func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("error create file %s: %v", cfg.FileStoragePath, err)
 		}
-		if err = store.Flush(f); err != nil {
+		if err = store.Flush(context.TODO(), f); err != nil {
 			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
 		}
 	}
@@ -200,7 +200,7 @@ func (cr *Router) postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("error create file %s: %v", cfg.FileStoragePath, err)
 		}
-		if err = store.Flush(f); err != nil {
+		if err = store.Flush(context.TODO(), f); err != nil {
 			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
 		}
 	}

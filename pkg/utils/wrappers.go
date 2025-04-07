@@ -9,7 +9,7 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 )
 
-// WithRetry wrapper for other functions with retries
+// WithRetry wrapper for other functions with retries.
 func WithRetry(ctx context.Context, log *logger.Logger, f func(ctx context.Context) error) error {
 	var lastErr error
 	for attempt := 0; attempt < models.RetryMaxRetries; attempt++ {

@@ -1,5 +1,5 @@
 package config
 
 const (
-	DefaultSecretKey string = ""
+	DefaultSecretKey string = "" // default key for crypt
 )
