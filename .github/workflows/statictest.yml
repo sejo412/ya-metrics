@@ -34,5 +34,5 @@ jobs:
 
       - name: Run multilint
         run: |
-          go build -o ./cmd/staticlint/staticlint ./cmd/staticlint/
+          go build -buildvcs=false -o ./cmd/staticlint/staticlint ./cmd/staticlint/
           go vet -vettool=./cmd/staticlint/staticlint ./...
