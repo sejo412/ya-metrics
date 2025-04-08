@@ -1,13 +1,26 @@
+MODULE := github.com/sejo412/ya-metrics/internal/config
+BUILD_VERSION ?= 0.0.0-rc1
+BUILD_COMMIT ?= $$(git rev-parse HEAD)
+BUILD_DATE ?= $$(date -R)
+
 .PHONY: all
 all: server agent staticlint
 
 .PHONY: server
 server:
-	go build -o ./cmd/server/server ./cmd/server/
+	go build -ldflags \
+		"-X '$(MODULE).BuildVersion=$(BUILD_VERSION)'\
+		-X '$(MODULE).BuildCommit=$(BUILD_COMMIT)'\
+		-X '$(MODULE).BuildDate=$(BUILD_DATE)'"\
+		-o ./cmd/server/server ./cmd/server/
 
 .PHONY: agent
 agent:
-	go build -o ./cmd/agent/agent ./cmd/agent/
+	go build -ldflags \
+		"-X '$(MODULE).BuildVersion=$(BUILD_VERSION)'\
+		-X '$(MODULE).BuildCommit=$(BUILD_COMMIT)'\
+		-X '$(MODULE).BuildDate=$(BUILD_DATE)'"\
+		-o ./cmd/agent/agent ./cmd/agent/
 
 .PHONY: staticlint
 staticlint:
