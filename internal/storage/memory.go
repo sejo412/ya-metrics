@@ -15,8 +15,8 @@ import (
 
 // MemoryStorage is backend for RAM.
 type MemoryStorage struct {
-	mutex   sync.Mutex
 	metrics map[string]models.Metric
+	mutex   sync.Mutex
 }
 
 // NewMemoryStorage returns new MemoryStorage object.
@@ -30,8 +30,10 @@ func (s *MemoryStorage) Open(ctx context.Context, opts Options) error {
 	return nil
 }
 
-// Close not implemented for RAM.
 func (s *MemoryStorage) Close() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.metrics = nil
 }
 
 // Ping not implemented for RAM.

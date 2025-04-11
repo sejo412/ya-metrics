@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strconv"
 	"time"
 )
 
@@ -31,8 +30,6 @@ type Options struct {
 	Scheme string
 	// Host - host for connect to backend.
 	Host string
-	// Port - TCP port for connect to backend.
-	Port int
 	// Username - login for connect to backend.
 	Username string
 	// Password - password for connect to backend.
@@ -41,6 +38,8 @@ type Options struct {
 	Database string
 	// SSLMode - settings for SSL.
 	SSLMode string
+	// Port - TCP port for connect to backend.
+	Port int
 }
 
 // ParseDSN parses DSN string to Options type.
@@ -59,12 +58,6 @@ func ParseDSN(dsn string) (opts Options, err error) {
 		port = defaultPostgresPort
 	default:
 		return opts, fmt.Errorf("unsupported database scheme: %s", u.Scheme)
-	}
-	if u.Port() != "" {
-		port, err = strconv.Atoi(u.Port())
-		if err != nil {
-			return opts, fmt.Errorf("failed to parse port in dsn: %w", err)
-		}
 	}
 	password, _ := u.User.Password()
 	paramSslMode := u.Query().Get("sslmode")

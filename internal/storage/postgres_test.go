@@ -5,6 +5,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -43,10 +44,12 @@ func TestMain(m *testing.M) {
 	defer testDB.Close()
 	exitVal := m.Run()
 	fmt.Println("clear integration tests data")
-	/*
-		_, _ = testDB.db.Exec("DELETE FROM users WHERE id < 0")
-		_, _ = testDB.db.Exec("DELETE FROM llm WHERE id < 0")
-	*/
+	if err := testDB.Open(context.Background(), opts); err != nil {
+		fmt.Println(err)
+	}
+	if _, err := testDB.Client.Exec("DELETE FROM metric_mapping WHERE name LIKE 'test%'"); err != nil {
+		fmt.Println(err)
+	}
 	os.Exit(exitVal)
 }
 
@@ -225,6 +228,19 @@ func TestPostgresStorage_Get(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "get counter OK",
+			args: args{
+				ctx:  context.Background(),
+				kind: models.MetricKindCounter,
+				name: "testCounter1",
+			},
+			want: models.Metric{
+				Kind:  models.MetricKindCounter,
+				Name:  "testCounter1",
+				Value: "3",
+			},
+		},
+		{
 			name: "get gauge Error",
 			args: args{
 				ctx:  context.Background(),
@@ -361,6 +377,48 @@ func TestPostgresStorage_Flush(t *testing.T) {
 				t.Errorf("Flush() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+		})
+	}
+}
+
+func TestPostgresStorage_Close(t *testing.T) {
+	opts := Options{
+		Scheme:   "postgres",
+		Host:     "localhost",
+		Port:     5432,
+		Username: "metrics",
+		Password: "secret",
+		Database: "metrics",
+	}
+	_, ok := os.LookupEnv("GITHUB_ACTIONS")
+	if ok {
+		opts.Host = "postgres"
+	} else {
+		opts.Port = 15432
+	}
+	if err := testDB.Open(context.Background(), opts); err != nil {
+		panic(err)
+	}
+	type fields struct {
+		Client *sql.DB
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			name: "close OK",
+			fields: fields{
+				Client: testDB.Client,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &PostgresStorage{
+				Client: tt.fields.Client,
+			}
+			p.Close()
 		})
 	}
 }

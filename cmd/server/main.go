@@ -97,7 +97,6 @@ func run() error {
 	if cfg.StoreInterval > 0 && dsn.Scheme == "memory" {
 		go server.FlushingMetrics(store, cfg.FileStoragePath, cfg.StoreInterval)
 	}
-
 	return server.StartServer(&config.Options{
 		Config:  cfg,
 		Storage: store,

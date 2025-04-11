@@ -18,8 +18,8 @@ type metrics struct {
 
 type gauge struct {
 	memStats    *runtime.MemStats
-	randomValue float64
 	psStats     psStats
+	randomValue float64
 }
 
 type counter struct {
@@ -32,7 +32,7 @@ type report struct {
 }
 
 type psStats struct {
+	cpuUtilization map[string]float64
 	totalMemory    float64
 	freeMemory     float64
-	cpuUtilization map[string]float64
 }

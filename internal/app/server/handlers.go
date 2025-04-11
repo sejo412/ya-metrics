@@ -193,15 +193,15 @@ func (cr *Router) postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := cr.opts.Config
 	if cfg.StoreInterval == 0 {
-		f, err := os.Create(cfg.FileStoragePath)
+		f, err1 := os.Create(cfg.FileStoragePath)
 		defer func() {
 			_ = f.Close()
 		}()
-		if err != nil {
-			log.Printf("error create file %s: %v", cfg.FileStoragePath, err)
+		if err1 != nil {
+			log.Printf("error create file %s: %v", cfg.FileStoragePath, err1)
 		}
-		if err = store.Flush(context.TODO(), f); err != nil {
-			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
+		if err2 := store.Flush(context.TODO(), f); err2 != nil {
+			log.Printf("%v: flush store %s", err2, cfg.FileStoragePath)
 		}
 	}
 	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)

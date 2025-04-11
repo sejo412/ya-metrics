@@ -45,7 +45,10 @@ func run() error {
 
 	a := agent.NewAgent(&cfg)
 	l := a.Config.Logger
-	l.Infow("starting agent", "server", cfg.Address,
+	version := config.GetVersion()
+	l.Infow("agent starting",
+		"version", version,
+		"server", cfg.Address,
 		"reportInterval", cfg.ReportInterval,
 		"pollInterval", cfg.PollInterval,
 		"pathStyle", cfg.PathStyle,

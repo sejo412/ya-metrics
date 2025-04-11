@@ -62,6 +62,7 @@ func StartServer(opts *config.Options,
 	router := NewRouterWithConfig(opts, logs)
 
 	log.Infow("server starting",
+		"version", config.GetVersion(),
 		"address", opts.Config.Address,
 		"storeInterval", opts.Config.StoreInterval,
 		"fileStoragePath", opts.Config.FileStoragePath,
