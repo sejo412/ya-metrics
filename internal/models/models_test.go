@@ -156,9 +156,9 @@ func TestPSMetricsCPU(t *testing.T) {
 		c []float64
 	}
 	tests := []struct {
+		want map[string]float64
 		name string
 		args args
-		want map[string]float64
 	}{
 		{
 			name: "cpu ok",

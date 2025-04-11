@@ -345,8 +345,8 @@ func TestMemoryStorage_Init(t *testing.T) {
 		ctx context.Context
 	}
 	tests := []struct {
-		name    string
 		args    args
+		name    string
 		wantErr bool
 	}{
 		{
@@ -400,8 +400,8 @@ func TestMemoryStorage_Ping(t *testing.T) {
 		ctx context.Context
 	}
 	tests := []struct {
-		name    string
 		args    args
+		name    string
 		wantErr bool
 	}{
 		{

@@ -12,9 +12,9 @@ func TestStaticCheckQFAnalyzer(t *testing.T) {
 		name string
 	}
 	tests := []struct {
+		want *analysis.Analyzer
 		name string
 		args args
-		want *analysis.Analyzer
 	}{
 		{
 			name: "Static Check QF Analyzer",
@@ -70,9 +70,9 @@ func TestStaticCheckSAnalyzer(t *testing.T) {
 		name string
 	}
 	tests := []struct {
+		want *analysis.Analyzer
 		name string
 		args args
-		want *analysis.Analyzer
 	}{
 		{
 			name: "Static Check S Analyzer",
@@ -105,9 +105,9 @@ func TestStaticCheckSTAnalyzer(t *testing.T) {
 		name string
 	}
 	tests := []struct {
+		want *analysis.Analyzer
 		name string
 		args args
-		want *analysis.Analyzer
 	}{
 		{
 			name: "Static Check ST Analyzer",

@@ -67,8 +67,8 @@ func TestLoggingResponseWriter_WriteHeader(t *testing.T) {
 		statusCode int
 	}
 	tests := []struct {
-		name   string
 		fields fields
+		name   string
 		args   args
 	}{
 		{
@@ -98,8 +98,8 @@ func TestLoggingResponseWriter_WriteHeader(t *testing.T) {
 
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
-		name    string
 		want    *Logger
+		name    string
 		wantErr bool
 	}{
 		{
@@ -129,9 +129,9 @@ func TestNewMiddleware(t *testing.T) {
 		logger *zap.SugaredLogger
 	}
 	tests := []struct {
-		name string
 		args args
 		want *Middleware
+		name string
 	}{
 		{
 			name: "NewMiddleware",

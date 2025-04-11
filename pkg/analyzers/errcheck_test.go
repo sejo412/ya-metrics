@@ -9,8 +9,8 @@ import (
 
 func TestErrCheckAnalyzer(t *testing.T) {
 	tests := []struct {
-		name string
 		want *analysis.Analyzer
+		name string
 	}{
 		{
 			name: "ErrCheckAnalyzer",
