@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strconv"
 	"time"
 )
 
@@ -59,12 +58,6 @@ func ParseDSN(dsn string) (opts Options, err error) {
 		port = defaultPostgresPort
 	default:
 		return opts, fmt.Errorf("unsupported database scheme: %s", u.Scheme)
-	}
-	if u.Port() != "" {
-		port, err = strconv.Atoi(u.Port())
-		if err != nil {
-			return opts, fmt.Errorf("failed to parse port in dsn: %w", err)
-		}
 	}
 	password, _ := u.User.Password()
 	paramSslMode := u.Query().Get("sslmode")

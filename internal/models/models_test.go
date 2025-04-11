@@ -150,3 +150,35 @@ func TestConvertV2ToV1(t *testing.T) {
 		})
 	}
 }
+
+func TestPSMetricsCPU(t *testing.T) {
+	type args struct {
+		c []float64
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]float64
+	}{
+		{
+			name: "cpu ok",
+			args: args{
+				c: []float64{
+					10.0,
+					20.0,
+				},
+			},
+			want: map[string]float64{
+				"CPUutilization0": 10.0,
+				"CPUutilization1": 20.0,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := PSMetricsCPU(tt.args.c); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PSMetricsCPU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

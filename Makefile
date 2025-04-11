@@ -39,6 +39,14 @@ statictest:
 statictest2:
 	go vet -vettool=./cmd/staticlint/staticlint ./...
 
+.PHONY: cover
+cover:
+	#go test ./... -coverprofile=./coverage.out -covermode=atomic -coverpkg=./...
+	go test -v -tags integration -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	go tool cover -func=coverage.out
+	@rm -f coverage.out
+
 .PHONY: lint
 lint:
 	task lint

@@ -276,6 +276,7 @@ func TestMemoryStorage_Flush(t *testing.T) {
 }
 
 func TestMemoryStorage_Load(t *testing.T) {
+	var testError = []byte("zzz")
 	type args struct {
 		ctx context.Context
 		src io.Reader
@@ -291,6 +292,13 @@ func TestMemoryStorage_Load(t *testing.T) {
 				src: bufferTest,
 			},
 			wantErr: false,
+		},
+		{
+			name: "load Error",
+			args: args{
+				src: bytes.NewReader(testError),
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -332,6 +340,33 @@ func genMetrics(count int) []models.Metric {
 	return metrics
 }
 
+func TestMemoryStorage_Init(t *testing.T) {
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "init OK",
+			args: args{
+				ctx: context.Background(),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &MemoryStorage{}
+			if err := s.Init(tt.args.ctx); (err != nil) != tt.wantErr {
+				t.Errorf("Init() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestMemoryStorage_Open(t *testing.T) {
 	type args struct {
 		ctx  context.Context
@@ -355,6 +390,58 @@ func TestMemoryStorage_Open(t *testing.T) {
 			s := &MemoryStorage{}
 			if err := s.Open(tt.args.ctx, tt.args.opts); (err != nil) != tt.wantErr {
 				t.Errorf("Open() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestMemoryStorage_Ping(t *testing.T) {
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "ping OK",
+			args: args{
+				ctx: context.Background(),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &MemoryStorage{}
+			if err := s.Ping(tt.args.ctx); (err != nil) != tt.wantErr {
+				t.Errorf("Ping() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestMemoryStorage_Close(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "close OK",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &MemoryStorage{}
+			s.metrics = make(map[string]models.Metric)
+			s.metrics["testGauge1"] = models.Metric{
+				Kind:  models.MetricKindGauge,
+				Name:  "testGauge1",
+				Value: "9999.11",
+			}
+			s.Close()
+			if s.metrics != nil {
+				t.Errorf("Close() metrics = %v", s.metrics)
 			}
 		})
 	}

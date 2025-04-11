@@ -25,3 +25,8 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+# tests
+/coverage.out
+/.testcoverage.yml
+/coverage.html

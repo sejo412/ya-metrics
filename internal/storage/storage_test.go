@@ -16,7 +16,7 @@ func TestParseDSN(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "valid DSN postgres",
+			name: "valid DSN postgres 1",
 			args: args{
 				dsn: "postgres://user:password@host.com:5432/dbname",
 			},
@@ -32,6 +32,23 @@ func TestParseDSN(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid DSN postgres 2",
+			args: args{
+				dsn: "postgres://user:password@host.com:5432/dbname?sslmode=verify-full",
+			},
+			wantOpts: Options{
+				Scheme:   "postgres",
+				Username: "user",
+				Password: "password",
+				Host:     "host.com",
+				Port:     5432,
+				Database: "dbname",
+				SSLMode:  sslModeVerifyFull,
+			},
+			wantErr: false,
+		},
+		{
+
 			name: "invalid DSN postgres (sslmode)",
 			args: args{
 				dsn: "postgres://user:password@host.com:5432/dbname?sslmode=preved",
@@ -42,7 +59,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			name: "invalid DSN postgres (port)",
 			args: args{
-				dsn: "postgres://user:password@host.com:5432z/dbname?sslmode=preved",
+				dsn: "postgres://user:password@host.com:5432z/dbname",
 			},
 			wantOpts: Options{},
 			wantErr:  true,
@@ -68,7 +85,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			name: "invalid DSN",
 			args: args{
-				dsn: "qweqwe:asdasd",
+				dsn: "qweqwe'':asdasd",
 			},
 			wantOpts: Options{},
 			wantErr:  true,
@@ -77,6 +94,7 @@ func TestParseDSN(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotOpts, err := ParseDSN(tt.args.dsn)
+			t.Log(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseDSN() error = %v, wantErr %v", err, tt.wantErr)
 				return

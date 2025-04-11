@@ -8,6 +8,12 @@ import (
 	"honnef.co/go/tools/stylecheck"
 )
 
+const (
+	defaultStaticCheckSAnalyzer  string = "S1011"
+	defaultStaticCheckSTAnalyzer string = "ST1005"
+	defaultStaticCheckQFAnalyzer string = "QF1012"
+)
+
 /*
 StaticCheckSAAnalyzers returns all SA-grouped analyzers from `staticcheck` module.
 
@@ -118,9 +124,12 @@ func StaticCheckSAAnalyzers() []*analysis.Analyzer {
 
 // StaticCheckSAnalyzer returns S1011 analyzer from `staticcheck` module.
 // S1011	Use a single append to concatenate two slices
-func StaticCheckSAnalyzer() *analysis.Analyzer {
+func StaticCheckSAnalyzer(name string) *analysis.Analyzer {
+	if name == "" {
+		name = defaultStaticCheckSAnalyzer
+	}
 	for _, v := range simple.Analyzers {
-		if v.Analyzer.Name == "S1011" {
+		if v.Analyzer.Name == name {
 			return v.Analyzer
 		}
 	}
@@ -129,9 +138,12 @@ func StaticCheckSAnalyzer() *analysis.Analyzer {
 
 // StaticCheckSTAnalyzer returns ST1005 analyzer from `staticcheck` module.
 // ST1005	Incorrectly formatted error string
-func StaticCheckSTAnalyzer() *analysis.Analyzer {
+func StaticCheckSTAnalyzer(name string) *analysis.Analyzer {
+	if name == "" {
+		name = defaultStaticCheckSTAnalyzer
+	}
 	for _, v := range stylecheck.Analyzers {
-		if v.Analyzer.Name == "ST1005" {
+		if v.Analyzer.Name == name {
 			return v.Analyzer
 		}
 	}
@@ -140,9 +152,12 @@ func StaticCheckSTAnalyzer() *analysis.Analyzer {
 
 // StaticCheckQFAnalyzer returns QF1012 analyzer from `staticcheck` module.
 // QF1012	Use fmt.Fprintf(x, ...) instead of x.Write(fmt.Sprintf(...))
-func StaticCheckQFAnalyzer() *analysis.Analyzer {
+func StaticCheckQFAnalyzer(name string) *analysis.Analyzer {
+	if name == "" {
+		name = defaultStaticCheckQFAnalyzer
+	}
 	for _, v := range quickfix.Analyzers {
-		if v.Analyzer.Name == "QF1012" {
+		if v.Analyzer.Name == name {
 			return v.Analyzer
 		}
 	}
