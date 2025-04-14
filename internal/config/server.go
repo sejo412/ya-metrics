@@ -21,16 +21,16 @@ const (
 type ServerConfig struct {
 	// Address - listen address.
 	Address string `env:"ADDRESS"`
-	// StoreInterval - how often flush metrics from memory to disk.
-	StoreInterval int `env:"STORE_INTERVAL"`
 	// FileStoragePath - file for saved metrics.
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	// Restore -  restore metrics from file at startup.
-	Restore bool `env:"RESTORE"`
 	// DatabaseDSN - dsn string.
 	DatabaseDSN string `env:"DATABASE_DSN"`
 	// Key - string for crypt data.
 	Key string `env:"KEY"`
+	// StoreInterval - how often flush metrics from memory to disk.
+	StoreInterval int `env:"STORE_INTERVAL"`
+	// Restore -  restore metrics from file at startup.
+	Restore bool `env:"RESTORE"`
 }
 
 // Storage interface for used backend.
@@ -59,8 +59,8 @@ type Storage interface {
 
 // Options contains server's options for startup.
 type Options struct {
-	// Config - used configuration.
-	Config ServerConfig
 	// Storage - used storage backend.
 	Storage Storage
+	// Config - used configuration.
+	Config ServerConfig
 }

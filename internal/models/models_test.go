@@ -18,9 +18,9 @@ func TestConvertV1ToV2(t *testing.T) {
 		m *Metric
 	}
 	tests := []struct {
-		name    string
 		args    args
 		want    *MetricV2
+		name    string
 		wantErr bool
 	}{
 		{
@@ -99,9 +99,9 @@ func TestConvertV2ToV1(t *testing.T) {
 		m *MetricV2
 	}
 	tests := []struct {
-		name    string
 		args    args
 		want    *Metric
+		name    string
 		wantErr bool
 	}{
 		{
@@ -146,6 +146,38 @@ func TestConvertV2ToV1(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ConvertV2ToV1() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPSMetricsCPU(t *testing.T) {
+	type args struct {
+		c []float64
+	}
+	tests := []struct {
+		want map[string]float64
+		name string
+		args args
+	}{
+		{
+			name: "cpu ok",
+			args: args{
+				c: []float64{
+					10.0,
+					20.0,
+				},
+			},
+			want: map[string]float64{
+				"CPUutilization0": 10.0,
+				"CPUutilization1": 20.0,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := PSMetricsCPU(tt.args.c); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PSMetricsCPU() = %v, want %v", got, tt.want)
 			}
 		})
 	}

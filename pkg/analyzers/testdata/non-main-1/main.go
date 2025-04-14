@@ -1,0 +1,9 @@
+package nonmain
+
+import (
+	"fmt"
+)
+
+func main() {
+	fmt.Println("hello world")
+}
