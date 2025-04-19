@@ -42,9 +42,9 @@ func TestLoadRSAPrivateKey(t *testing.T) {
 		key []byte
 	}
 	tests := []struct {
+		want    *rsa.PrivateKey
 		name    string
 		args    args
-		want    *rsa.PrivateKey
 		wantErr bool
 	}{
 		{
@@ -85,9 +85,9 @@ func TestLoadRSAPublicKey(t *testing.T) {
 		key []byte
 	}
 	tests := []struct {
+		want    *rsa.PublicKey
 		name    string
 		args    args
-		want    *rsa.PublicKey
 		wantErr bool
 	}{
 		{
@@ -125,8 +125,8 @@ func TestEncode(t *testing.T) {
 	block, _ := pem.Decode(testPublicKey)
 	key, _ := x509.ParsePKCS1PublicKey(block.Bytes)
 	type args struct {
-		data []byte
 		key  *rsa.PublicKey
+		data []byte
 	}
 	tests := []struct {
 		name    string
@@ -145,6 +145,7 @@ func TestEncode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Encode(tt.args.data, tt.args.key)
+			// fmt.Println(base64.StdEncoding.EncodeToString(res))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Encode() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -156,11 +157,11 @@ func TestEncode(t *testing.T) {
 func TestDecode(t *testing.T) {
 	block, _ := pem.Decode(testPrivateKey)
 	key, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
-	encodedBase64 := "FCTBDzeXv9L+VG7Un9mmOIsetLvBWlQ4WR1ryBi7Pe9Iz9S7UoLRQ0pBNTaYgEeR+E74iejo+slcBV14aWlrG17P4hlICMckb+iwjK9dxPfehdMw6KNWnsMAReQQ6JBBuaeIOLKzGsM2l8wX2vYk3kqcHTLv8FNKs24QiYCoDi4="
+	encodedBase64 := "bzU0dksrWhjPjJFET7PiX+xwzu2zDNe7t4JMr0E2yKMWRUw3h9eupU4OzakcVv+G62ZcicyescsIk2yrTWReeZeBoISvFdiP8PB87kXYLBFIJ4VNYavDKc+mKQdNYdbMnCDHsPJtb1aF60Q6C0gxIRD01eKl1WrTDUd5HJjM+rI="
 	encoded, _ := base64.StdEncoding.DecodeString(encodedBase64)
 	type args struct {
-		data []byte
 		key  *rsa.PrivateKey
+		data []byte
 	}
 	tests := []struct {
 		name    string

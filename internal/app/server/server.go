@@ -29,6 +29,7 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	// config & storage
 	router.opts.Config = opts.Config
 	router.opts.Storage = opts.Storage
+	router.opts.PrivateKey = opts.PrivateKey
 
 	// middlewares
 	router.Use(logs.WithLogging)

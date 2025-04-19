@@ -64,8 +64,8 @@ type Storage interface {
 type Options struct {
 	// Storage - used storage backend.
 	Storage Storage
-	// Config - used configuration.
-	Config ServerConfig
 	// PrivateKey - used for decrypt messages
 	PrivateKey *rsa.PrivateKey
+	// Config - used configuration.
+	Config ServerConfig
 }
