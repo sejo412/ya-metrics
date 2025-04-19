@@ -23,16 +23,18 @@ type AgentConfig struct {
 	Logger *logger.Logger
 	// Address - server endpoint.
 	Address string `env:"ADDRESS"`
+	// CryptoKey - path to public key
+	CryptoKey string `env:"CRYPTO_KEY"`
 	// Key for crypt data.
-	Key       string `env:"KEY"`
+	Key string `env:"KEY"`
 	// ReportInterval - how often send reports.
 	ReportInterval int `env:"REPORT_INTERVAL"`
 	// PollInterval - how often poll runtime metrics.
-	PollInterval int  `env:"POLL_INTERVAL"`
-	RateLimit int    `env:"RATE_LIMIT"`
+	PollInterval int `env:"POLL_INTERVAL"`
+	RateLimit    int `env:"RATE_LIMIT"`
 	// RealReportInterval - don't use it from code. It generates from ReportInterval.
 	RealReportInterval time.Duration
 	// RealPollInterval - don't use it from code. It generates from PollInterval.
 	RealPollInterval time.Duration
-	PathStyle    bool `env:"PATH_STYLE"`
+	PathStyle        bool `env:"PATH_STYLE"`
 }

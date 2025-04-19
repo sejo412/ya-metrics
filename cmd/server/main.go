@@ -30,6 +30,7 @@ func run() error {
 	pflag.BoolVarP(&cfg.Restore, "restore", "r", config.DefaultRestore, "Restore metrics")
 	pflag.StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", config.DefaultDatabaseDSN, "Database DSN")
 	pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
+	pflag.StringVar(&cfg.CryptoKey, "crypto-key", config.DefaultCryptoKey, "path to public key")
 	pflag.Parse()
 	err := env.Parse(&cfg)
 	if err != nil {

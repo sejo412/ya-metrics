@@ -27,6 +27,7 @@ func run() error {
 	pflag.BoolVarP(&cfg.PathStyle, "pathStyle", "o", config.DefaultPathStyle,
 		"use path style for post metrics (deprecated)")
 	pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
+	pflag.StringVar(&cfg.CryptoKey, "crypto-key", config.DefaultCryptoKey, "path to public key")
 	pflag.IntVarP(&cfg.RateLimit, "limit", "l", config.DefaultRateLimit, "rate limit")
 	pflag.Parse()
 	err := env.Parse(&cfg)
