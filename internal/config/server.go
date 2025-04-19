@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"crypto/rsa"
 	"io"
 
 	"github.com/sejo412/ya-metrics/internal/models"
@@ -21,6 +22,8 @@ const (
 type ServerConfig struct {
 	// Address - listen address.
 	Address string `env:"ADDRESS"`
+	// CryptoKey - path to private key
+	CryptoKey string `env:"CRYPTO_KEY"`
 	// FileStoragePath - file for saved metrics.
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	// DatabaseDSN - dsn string.
@@ -63,4 +66,6 @@ type Options struct {
 	Storage Storage
 	// Config - used configuration.
 	Config ServerConfig
+	// PrivateKey - used for decrypt messages
+	PrivateKey *rsa.PrivateKey
 }

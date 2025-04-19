@@ -91,6 +91,29 @@ func checkHashHandle(next http.Handler) http.Handler {
 	})
 }
 
+func (cr *Router) decryptHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer func() {
+			_ = r.Body.Close()
+		}()
+		var data []byte
+		if len(body) > 0 {
+			data, err = utils.Decode(body, cr.opts.PrivateKey)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		r.Body = io.NopCloser(bytes.NewReader(data))
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
 	metric := models.Metric{
 		Kind:  chi.URLParam(r, "kind"),

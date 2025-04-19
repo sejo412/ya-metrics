@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -10,6 +11,7 @@ import (
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
+	"github.com/sejo412/ya-metrics/pkg/utils"
 )
 
 type Router struct {
@@ -31,6 +33,9 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	// middlewares
 	router.Use(logs.WithLogging)
 	router.Use(middleware.WithValue("key", opts.Config.Key))
+	if router.opts.PrivateKey != nil {
+		router.Use(router.decryptHandler)
+	}
 	router.Use(checkHashHandle)
 	router.Use(gzipHandle)
 
@@ -59,6 +64,16 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 func StartServer(opts *config.Options,
 	logs *logger.Middleware) error {
 	log := logs.Logger
+	if opts.Config.CryptoKey != "" {
+		k, err := os.ReadFile(opts.Config.CryptoKey)
+		if err != nil {
+			return fmt.Errorf("error read crypto key: %w", err)
+		}
+		opts.PrivateKey, err = utils.LoadRSAPrivateKey(k)
+		if err != nil {
+			return fmt.Errorf("error load private key: %w", err)
+		}
+	}
 	router := NewRouterWithConfig(opts, logs)
 
 	log.Infow("server starting",

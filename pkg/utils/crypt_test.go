@@ -144,8 +144,7 @@ func TestEncode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := Encode(tt.args.data, tt.args.key)
-			t.Log(base64.StdEncoding.EncodeToString(res))
+			_, err := Encode(tt.args.data, tt.args.key)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Encode() error = %v, wantErr %v", err, tt.wantErr)
 				return

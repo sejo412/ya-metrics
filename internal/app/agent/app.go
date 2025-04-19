@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -41,12 +42,23 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 		Metrics: m,
 		Config:  cfg,
 	}
+
 }
 
 // Run starts agent application.
 func (a *Agent) Run(ctx context.Context) error {
 	var err error
 	var wg sync.WaitGroup
+	if a.Config.CryptoKey != "" {
+		k, err := os.ReadFile(a.Config.CryptoKey)
+		if err != nil {
+			return fmt.Errorf("error read crypto key: %w", err)
+		}
+		a.PublicKey, err = utils.LoadRSAPublicKey(k)
+		if err != nil {
+			return fmt.Errorf("error loading public key: %w", err)
+		}
+	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -190,6 +202,18 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
+func (a *Agent) Encrypt(body *[]byte) error {
+	if a.PublicKey == nil {
+		return nil
+	}
+	encrypted, err := utils.Encode(*body, a.PublicKey)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt body: %w", err)
+	}
+	body = &encrypted
+	return nil
+}
+
 // Sign signs data with key.
 func (a *Agent) Sign(body *[]byte, r *http.Request) {
 	if a.Config.Key == "" {
@@ -254,7 +278,9 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	if err != nil {
 		return fmt.Errorf("failed compress metric: %w", err)
 	}
-
+	if err = a.Encrypt(&gziped); err != nil {
+		return fmt.Errorf("failed to encrypt metrics: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
 		bytes.NewBuffer(gziped))
 	if err != nil {
@@ -283,6 +309,9 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	gziped, err := utils.Compress(body)
 	if err != nil {
 		return fmt.Errorf("failed to compress metrics: %w", err)
+	}
+	if err = a.Encrypt(&gziped); err != nil {
+		return fmt.Errorf("failed to encrypt metrics: %w", err)
 	}
 	uri := address + "/" + models.MetricPathPostsPrefix + "/"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri,
