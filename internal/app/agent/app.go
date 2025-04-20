@@ -9,10 +9,12 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/config"
@@ -58,6 +60,19 @@ func (a *Agent) Run(ctx context.Context) error {
 			return fmt.Errorf("error loading public key: %w", err)
 		}
 	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	go func() {
+		log := a.Config.Logger
+		<-sigs
+		log.Info("shutting down...")
+		// We don't want waiting sends report with retries if server not reachable
+		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		defer cancel()
+		a.Report(timeoutCtx)
+		log.Info("shutdown complete")
+		os.Exit(0)
+	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
