@@ -128,15 +128,15 @@ func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
 
 	cfg := cr.opts.Config
 	if cfg.StoreInterval == 0 {
-		f, err := os.Create(cfg.FileStoragePath)
+		f, err := os.Create(cfg.StoreFile)
 		defer func() {
 			_ = f.Close()
 		}()
 		if err != nil {
-			log.Printf("error create file %s: %v", cfg.FileStoragePath, err)
+			log.Printf("error create file %s: %v", cfg.StoreFile, err)
 		}
 		if err = store.Flush(context.TODO(), f); err != nil {
-			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
+			log.Printf("%v: flush store %s", err, cfg.StoreFile)
 		}
 	}
 }
@@ -216,15 +216,15 @@ func (cr *Router) postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := cr.opts.Config
 	if cfg.StoreInterval == 0 {
-		f, err1 := os.Create(cfg.FileStoragePath)
+		f, err1 := os.Create(cfg.StoreFile)
 		defer func() {
 			_ = f.Close()
 		}()
 		if err1 != nil {
-			log.Printf("error create file %s: %v", cfg.FileStoragePath, err1)
+			log.Printf("error create file %s: %v", cfg.StoreFile, err1)
 		}
 		if err2 := store.Flush(context.TODO(), f); err2 != nil {
-			log.Printf("%v: flush store %s", err2, cfg.FileStoragePath)
+			log.Printf("%v: flush store %s", err2, cfg.StoreFile)
 		}
 	}
 	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)

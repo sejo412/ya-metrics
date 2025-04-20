@@ -81,7 +81,7 @@ func StartServer(opts *config.Options,
 		"version", config.GetVersion(),
 		"address", opts.Config.Address,
 		"storeInterval", opts.Config.StoreInterval,
-		"fileStoragePath", opts.Config.FileStoragePath,
+		"fileStoragePath", opts.Config.StoreFile,
 		"restore", opts.Config.Restore)
 	server := &http.Server{
 		Addr:              opts.Config.Address,

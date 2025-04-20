@@ -19,10 +19,10 @@ import (
 )
 
 var cfg = config.ServerConfig{
-	Address:         ":8080",
-	StoreInterval:   30,
-	FileStoragePath: "/tmp/testing_metrics.json",
-	Restore:         true,
+	Address:       ":8080",
+	StoreInterval: 30,
+	StoreFile:     "/tmp/testing_metrics.json",
+	Restore:       new(bool),
 }
 
 const notFound = "404 page not found"
