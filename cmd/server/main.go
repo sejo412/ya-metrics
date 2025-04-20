@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	_ "net/http/pprof"
 	"os"
 
 	"github.com/sejo412/ya-metrics/internal/app/server"
@@ -25,21 +24,6 @@ func run() error {
 	if err = cfg.Load(); err != nil {
 		return fmt.Errorf("error load config: %w", err)
 	}
-	/*
-		pflag.StringVarP(&cfg.Address, "address", "a", config.DefaultAddress, "Listen address")
-		pflag.IntVarP(&cfg.StoreInterval, "storeInterval", "i", config.DefaultStoreInterval, "Store interval")
-		pflag.StringVarP(&cfg.StoreFile, "fileStoragePath", "f", config.DefaultStoreFile, "File storage path")
-		pflag.BoolVarP(&cfg.Restore, "restore", "r", config.DefaultRestore, "Restore metrics")
-		pflag.StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", config.DefaultDatabaseDSN, "Database DSN")
-		pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
-		pflag.StringVar(&cfg.CryptoKey, "crypto-key", config.DefaultCryptoKey, "path to public key")
-		pflag.Parse()
-		err := env.Parse(&cfg)
-		if err != nil {
-			return fmt.Errorf("parse config: %w", err)
-		}
-	*/
-
 	// logger init
 	logs, err := zap.NewDevelopment()
 	if err != nil {

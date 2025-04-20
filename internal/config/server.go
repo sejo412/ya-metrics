@@ -89,19 +89,19 @@ func (s *ServerConfig) Load() error {
 	cfgFile := flagSet.StringP("config", "c", "",
 		"path to config file in JSON format")
 	flagAddress := flagSet.StringP("address", "a", "",
-		fmt.Sprintf("Listen address (default: \"%s\")", DefaultAddress))
+		fmt.Sprintf("Listen address (default: %q)", DefaultAddress))
 	flagStoreInterval := flagSet.IntP("storeInterval", "i", 0,
 		fmt.Sprintf("Store interval (default: %d)", DefaultStoreInterval))
 	flagStoreFile := flagSet.StringP("storeFile", "f", "",
-		fmt.Sprintf("File storage path (default: \"%s\")", DefaultStoreFile))
+		fmt.Sprintf("File storage path (default: %q)", DefaultStoreFile))
 	flagRestore := flagSet.BoolP("restore", "r", false,
 		fmt.Sprintf("Restore metrics (default: %t)", DefaultRestore))
 	flagDatabaseDSN := flagSet.StringP("database-dsn", "d", "",
-		fmt.Sprintf("Database DSN (default: \"%s\")", DefaultDatabaseDSN))
+		fmt.Sprintf("Database DSN (default: %q)", DefaultDatabaseDSN))
 	flagKey := flagSet.StringP("key", "k", "",
-		fmt.Sprintf("secret key (default: \"%s\")", DefaultSecretKey))
+		fmt.Sprintf("secret key (default: %q)", DefaultSecretKey))
 	flagCryptoKey := flagSet.String("crypto-key", "",
-		fmt.Sprintf("path to public key (default: \"%s\")", DefaultCryptoKey))
+		fmt.Sprintf("path to public key (default: %q)", DefaultCryptoKey))
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		return fmt.Errorf("error parse flags: %w", err)

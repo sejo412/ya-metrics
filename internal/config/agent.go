@@ -55,7 +55,7 @@ func (a *AgentConfig) Load() error {
 	cfgFile := pflag.StringP("config", "c", "",
 		"path to config file in JSON format")
 	pflag.StringVarP(&cfg.Address, "address", "a", "",
-		fmt.Sprintf("address to connect to (default \"%s\")", DefaultServerAddress))
+		fmt.Sprintf("address to connect to (default %q)", DefaultServerAddress))
 	pflag.IntVarP(&cfg.ReportInterval, "reportInterval", "r", 0,
 		fmt.Sprintf("report interval in seconds (default %d)", DefaultReportInterval))
 	pflag.IntVarP(&cfg.PollInterval, "pollInterval", "p", 0,
@@ -63,9 +63,9 @@ func (a *AgentConfig) Load() error {
 	pflag.BoolVarP(&cfg.PathStyle, "pathStyle", "o", DefaultPathStyle,
 		"use path style for post metrics (deprecated)")
 	pflag.StringVarP(&cfg.Key, "key", "k", "",
-		fmt.Sprintf("secret key for signing requests (default \"%s\")", DefaultSecretKey))
+		fmt.Sprintf("secret key for signing requests (default %q)", DefaultSecretKey))
 	pflag.StringVar(&cfg.CryptoKey, "crypto-key", "",
-		fmt.Sprintf("path to public key for encrypt requests (default \"%s\")", DefaultCryptoKey))
+		fmt.Sprintf("path to public key for encrypt requests (default %q)", DefaultCryptoKey))
 	pflag.IntVarP(&cfg.RateLimit, "limit", "l", 0,
 		fmt.Sprintf("rate limit in seconds (default %d)", DefaultRateLimit))
 	pflag.Parse()

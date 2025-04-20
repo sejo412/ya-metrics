@@ -31,7 +31,8 @@ SA1011	Various methods in the strings package expect valid UTF-8, but invalid in
 SA1012	A nil context.Context is being passed to a function, consider using context.TODO instead
 SA1013	io.Seeker.Seek is being called with the whence constant as the first argument, but it should be the second
 SA1014	Non-pointer value passed to Unmarshal or Decode
-SA1015	Using time.Tick in a way that will leak. Consider using time.NewTicker, and only use time.Tick in tests, commands and endless functions
+SA1015	Using time.Tick in a way that will leak. Consider using time.NewTicker, and only use time.
+Tick in tests, commands and endless functions
 SA1016	Trapping a signal that cannot be trapped
 SA1017	Channels used with os/signal.Notify should be buffered
 SA1018	strings.Replace called with n == 0, which does nothing
@@ -66,7 +67,8 @@ SA4010	The result of append will never be observed anywhere
 SA4011	Break statement with no effect. Did you mean to break out of an outer loop?
 SA4012	Comparing a value against NaN even though no value is equal to NaN
 SA4013	Negating a boolean twice (!!b) is the same as writing b. This is either redundant, or a typo.
-SA4014	An if/else if chain has repeated conditions and no side-effects; if the condition didn’t match the first time, it won’t match the second time, either
+SA4014	An if/else if chain has repeated conditions and no side-effects; if the condition didn’t match the first time,
+it won’t match the second time, either
 SA4015	Calling functions like math.Ceil on floats converted from integers doesn’t do anything useful
 SA4016	Certain bitwise operations, such as x ^ 0, do not do anything useful
 SA4017	Discarding the return values of a function without side effects, making the call pointless

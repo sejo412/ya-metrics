@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/config"
@@ -44,7 +43,6 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 		Metrics: m,
 		Config:  cfg,
 	}
-
 }
 
 // Run starts agent application.
@@ -61,13 +59,13 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 	}
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sigs, config.GracefulSignals...)
 	go func() {
 		log := a.Config.Logger
 		<-sigs
 		log.Info("shutting down...")
 		// We don't want waiting sends report with retries if server not reachable
-		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(ctx, config.GracefulTimeout)
 		defer cancel()
 		a.Report(timeoutCtx)
 		log.Info("shutdown complete")

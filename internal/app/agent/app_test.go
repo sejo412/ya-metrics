@@ -36,8 +36,6 @@ var testCfg = config.AgentConfig{
 	Logger:             nil,
 }
 
-var testAgent = NewAgent(&testCfg)
-
 func TestAgent_Poll(t *testing.T) {
 	type fields struct {
 		Metrics *metrics
