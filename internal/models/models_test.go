@@ -2,7 +2,10 @@ package models
 
 import (
 	"reflect"
+	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func floatToPointer(value float64) *float64 {
@@ -179,6 +182,31 @@ func TestPSMetricsCPU(t *testing.T) {
 			if got := PSMetricsCPU(tt.args.c); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PSMetricsCPU() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestRuntimeMetricsMap(t *testing.T) {
+	type args struct {
+		r *runtime.MemStats
+	}
+	tests := []struct {
+		args args
+		name string
+	}{
+		{
+			name: "ok",
+			args: args{
+				r: &runtime.MemStats{
+					Alloc: 1000,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RuntimeMetricsMap(tt.args.r)
+			assert.Equal(t, got["Alloc"], uint64(1000))
 		})
 	}
 }

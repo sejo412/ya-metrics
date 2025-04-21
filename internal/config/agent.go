@@ -36,7 +36,7 @@ type AgentConfig struct {
 	ReportInterval int `env:"REPORT_INTERVAL" json:"report_interval,omitempty"`
 	// PollInterval - how often poll runtime metrics.
 	PollInterval int `env:"POLL_INTERVAL" json:"poll_interval,omitempty"`
-	RateLimit    int `env:"RATE_LIMIT"`
+	RateLimit    int `env:"RATE_LIMIT" json:"rate_limit,omitempty"`
 	// RealReportInterval - don't use it from code. It generates from ReportInterval.
 	RealReportInterval time.Duration
 	// RealPollInterval - don't use it from code. It generates from PollInterval.
@@ -110,6 +110,8 @@ func (a *AgentConfig) Load() error {
 	a.CryptoKey = cfg.CryptoKey
 	a.Key = cfg.Key
 	a.RateLimit = cfg.RateLimit
+	a.ReportInterval = cfg.ReportInterval
+	a.PollInterval = cfg.PollInterval
 	a.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
 	a.RealPollInterval = time.Duration(cfg.PollInterval) * time.Second
 	a.PathStyle = cfg.PathStyle

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,34 @@ var cfg = config.ServerConfig{
 }
 
 const notFound = "404 page not found"
+
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header,
+	body io.Reader) (*http.Response, string) {
+	ctx := context.TODO()
+	req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
+	req.Header = header
+	if err != nil {
+		t.Fatal(err)
+		return nil, ""
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+		return nil, ""
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+		return nil, ""
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	result, _ := strings.CutSuffix(string(respBody), "\n")
+	return resp, result
+}
 
 func Test_handleUpdate(t *testing.T) {
 	type want struct {
@@ -182,35 +211,10 @@ func Test_getIndex(t *testing.T) {
 		})
 	}
 }
-func testRequest(t *testing.T, ts *httptest.Server, method, path string, header http.Header,
-	body io.Reader) (*http.Response, string) {
-	ctx := context.TODO()
-	req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
-	req.Header = header
-	if err != nil {
-		t.Fatal(err)
-		return nil, ""
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-		return nil, ""
-	}
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-		return nil, ""
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	result, _ := strings.CutSuffix(string(respBody), "\n")
-	return resp, result
-}
 
 func Test_postUpdateJSON(t *testing.T) {
+	gzippedBase64invalid := "H4sICDwDBWgAA3Rlc3QAKyhKLUtN4QIAlOowhwcAAAA="
+	gzippedInvalid, _ := base64.StdEncoding.DecodeString(gzippedBase64invalid)
 	type want struct {
 		response string
 		code     int
@@ -246,6 +250,152 @@ func Test_postUpdateJSON(t *testing.T) {
 				response: m.ErrHTTPBadRequest.Error(),
 			},
 		},
+		{
+			name:    "valid gzip invalid json",
+			request: "/update/",
+			header: http.Header{
+				m.HTTPHeaderContentEncoding: []string{"gzip"},
+			},
+			body: bytes.NewBuffer(gzippedInvalid),
+			want: want{
+				code:     http.StatusBadRequest,
+				response: m.ErrHTTPBadRequest.Error(),
+			},
+		},
+		{
+			name:    "invalid gzip",
+			request: "/update/",
+			header: http.Header{
+				m.HTTPHeaderContentEncoding: []string{"gzip"},
+			},
+			body: bytes.NewBuffer([]byte(`zzz`)),
+			want: want{
+				code:     http.StatusBadRequest,
+				response: "decompress error: unexpected EOF",
+			},
+		},
+		{
+			name:    "valid json",
+			request: "/update/",
+			header: http.Header{
+				m.HTTPHeaderContentType: []string{"application/json"},
+			},
+			body: bytes.NewBuffer([]byte(`{"type": "gauge", "value": 99.11, "id": "testGauge90"}`)),
+			want: want{
+				code:     http.StatusOK,
+				response: `{"value":99.11,"id":"testGauge90","type":"gauge"}`,
+			},
+		},
+	}
+	logger, _ := zap.NewDevelopment()
+	defer func() {
+		_ = logger.Sync()
+	}()
+	sugar := logger.Sugar()
+	lm := logger2.NewMiddleware(sugar)
+	r := NewRouterWithConfig(&config.Options{
+		Config:  cfg,
+		Storage: storage.NewMemoryStorage(),
+	}, lm)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			resp, body := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
+			assert.Equal(t, tt.want.response, body, tt.name)
+		})
+	}
+}
+func Test_postUpdatesJSON(t *testing.T) {
+	type want struct {
+		code int
+	}
+	tests := []struct {
+		body    io.Reader
+		header  http.Header
+		name    string
+		request string
+		want    want
+	}{
+		{
+			name:    "not json",
+			request: "/updates/",
+			header: http.Header{
+				"Content-Type": []string{"text/plain"},
+			},
+			body: bytes.NewBuffer([]byte(`foo=bar`)),
+			want: want{
+				code: http.StatusBadRequest,
+			},
+		},
+		{
+			name:    "invalid json",
+			request: "/updates/",
+			header: http.Header{
+				"Content-Type": []string{"application/json"},
+			},
+			body: bytes.NewBuffer([]byte(`{"value": "foo""}`)),
+			want: want{
+				code: http.StatusBadRequest,
+			},
+		},
+		{
+			name:    "valid json",
+			request: "/updates/",
+			header: http.Header{
+				m.HTTPHeaderContentType: []string{"application/json"},
+			},
+			body: bytes.NewBuffer([]byte(`[{"type": "gauge", "value": 99.11, "id": "testGauge90"}]`)),
+			want: want{
+				code: http.StatusOK,
+			},
+		},
+	}
+	logger, _ := zap.NewDevelopment()
+	defer func() {
+		_ = logger.Sync()
+	}()
+	sugar := logger.Sugar()
+	lm := logger2.NewMiddleware(sugar)
+	r := NewRouterWithConfig(&config.Options{
+		Config:  cfg,
+		Storage: storage.NewMemoryStorage(),
+	}, lm)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, _ := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
+		})
+	}
+}
+
+func TestRouter_pingStorage(t *testing.T) {
+	type want struct {
+		response string
+		code     int
+	}
+	tests := []struct {
+		name    string
+		request string
+		want    want
+	}{
+		{
+			name:    "ping",
+			request: "/ping",
+			want: want{
+				code: http.StatusOK,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -261,10 +411,132 @@ func Test_postUpdateJSON(t *testing.T) {
 				Config:  cfg,
 				Storage: store,
 			}, lm)
-
 			ts := httptest.NewServer(r)
 			defer ts.Close()
-			resp, body := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)
+			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
+			assert.Contains(t, body, tt.want.response, tt.name)
+		})
+	}
+}
+
+func TestRouter_getMetricJSON(t *testing.T) {
+	type want struct {
+		response string
+		code     int
+	}
+	tests := []struct {
+		name   string
+		header http.Header
+		body   io.Reader
+		want   want
+	}{
+		{
+			name: "ok",
+			header: http.Header{
+				"Content-Type": []string{"application/json"},
+			},
+			body: bytes.NewBuffer([]byte(`{"id": "testGauge90", "type": "gauge"}`)),
+			want: want{
+				code:     http.StatusOK,
+				response: `{"value":99.11,"id":"testGauge90","type":"gauge"}`,
+			},
+		},
+		{
+			name: "404 not found",
+			header: http.Header{
+				"Content-Type": []string{"application/json"},
+			},
+			body: bytes.NewBuffer([]byte(`{"id": "testGauge9", "type": "gauge"}`)),
+			want: want{
+				code:     http.StatusNotFound,
+				response: "not found",
+			},
+		},
+	}
+	logger, _ := zap.NewDevelopment()
+	defer func() {
+		_ = logger.Sync()
+	}()
+	sugar := logger.Sugar()
+	lm := logger2.NewMiddleware(sugar)
+	store := storage.NewMemoryStorage()
+	r := NewRouterWithConfig(&config.Options{
+		Config:  cfg,
+		Storage: store,
+	}, lm)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	_ = store.Upsert(context.Background(), m.Metric{
+		Kind:  "gauge",
+		Name:  "testGauge90",
+		Value: "99.11",
+	})
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, body := testRequest(t, ts, http.MethodPost, "/value/", tt.header, tt.body)
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
+			assert.Equal(t, tt.want.response, body, tt.name)
+		})
+	}
+}
+
+func TestRouter_getValue(t *testing.T) {
+	type want struct {
+		response string
+		code     int
+	}
+	tests := []struct {
+		name    string
+		request string
+		want    want
+	}{
+		{
+			name:    "ok",
+			request: "/value/gauge/testGauge90",
+			want: want{
+				code:     http.StatusOK,
+				response: "99.11",
+			},
+		},
+		{
+			name:    "404 not found",
+			request: "/value/gauge/testGauge91",
+			want: want{
+				code:     http.StatusNotFound,
+				response: "not found",
+			},
+		},
+	}
+	logger, _ := zap.NewDevelopment()
+	defer func() {
+		_ = logger.Sync()
+	}()
+	sugar := logger.Sugar()
+	lm := logger2.NewMiddleware(sugar)
+	store := storage.NewMemoryStorage()
+	r := NewRouterWithConfig(&config.Options{
+		Config:  cfg,
+		Storage: store,
+	}, lm)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+	_ = store.Upsert(context.Background(), m.Metric{
+		Kind:  "gauge",
+		Name:  "testGauge90",
+		Value: "99.11",
+	})
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
 			defer func() {
 				_ = resp.Body.Close()
 			}()
