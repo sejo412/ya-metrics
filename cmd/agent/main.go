@@ -41,6 +41,5 @@ func run() error {
 		"pathStyle", cfg.PathStyle,
 		"sign", cfg.Key != "",
 		"rateLimit", cfg.RateLimit)
-	ctx := context.Background()
-	return a.Run(ctx)
+	return a.Run(context.Background())
 }

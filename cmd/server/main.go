@@ -51,12 +51,12 @@ func run() error {
 		return fmt.Errorf("database \"%s\" not supported", cfg.DatabaseDSN)
 	}
 
-	ctx := context.Background()
-	if err = store.Open(ctx, dsn); err != nil {
+	ctxStore := context.Background()
+	if err = store.Open(ctxStore, dsn); err != nil {
 		return fmt.Errorf("error open database: %w", err)
 	}
 	defer store.Close()
-	if err = store.Init(ctx); err != nil {
+	if err = store.Init(ctxStore); err != nil {
 		return fmt.Errorf("error init database: %w", err)
 	}
 
@@ -81,11 +81,8 @@ func run() error {
 		}
 	}
 
-	// start flushing metrics on timer
-	if cfg.StoreInterval > 0 && dsn.Scheme == "memory" {
-		go server.FlushingMetrics(store, cfg.StoreFile, cfg.StoreInterval)
-	}
-	return server.StartServer(&config.Options{
+	ctx := context.Background()
+	return server.StartServer(ctx, &config.Options{
 		Config:  *cfg,
 		Storage: store,
 	},

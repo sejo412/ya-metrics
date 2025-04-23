@@ -301,7 +301,6 @@ func Test_postUpdateJSON(t *testing.T) {
 	defer ts.Close()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			resp, body := testRequest(t, ts, http.MethodPost, tt.request, tt.header, tt.body)
 			defer func() {
 				_ = resp.Body.Close()

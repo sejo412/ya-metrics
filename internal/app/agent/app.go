@@ -47,7 +47,6 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 
 // Run starts agent application.
 func (a *Agent) Run(ctx context.Context) error {
-	var wg sync.WaitGroup
 	if a.Config.CryptoKey != "" {
 		k, err := os.ReadFile(a.Config.CryptoKey)
 		if err != nil {
@@ -60,47 +59,70 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, config.GracefulSignals...)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	log := a.Config.Logger
+	var wg sync.WaitGroup
 	go func() {
-		log := a.Config.Logger
 		<-sigs
 		log.Info("shutting down...")
-		// We don't want waiting sends report with retries if server not reachable
-		timeoutCtx, cancel := context.WithTimeout(ctx, config.GracefulTimeout)
-		defer cancel()
-		a.Report(timeoutCtx)
-		log.Info("shutdown complete")
-		os.Exit(0)
+		cancel()
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		timer := time.NewTimer(a.Config.RealPollInterval)
+		defer timer.Stop()
 		for {
-			a.Poll()
-			time.Sleep(a.Config.RealPollInterval)
-		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			a.PollPS()
-			time.Sleep(a.Config.RealPollInterval)
-		}
-	}()
-	time.Sleep(1 * time.Second)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			// skip if function start before polling
-			if a.Metrics.counter.pollCount == 0 {
-				continue
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				a.Poll()
+				timer.Reset(a.Config.RealPollInterval)
 			}
-			a.Report(ctx)
-			time.Sleep(a.Config.RealReportInterval)
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timer := time.NewTimer(a.Config.RealPollInterval)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				a.PollPS()
+				timer.Reset(a.Config.RealPollInterval)
+			}
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timer := time.NewTimer(a.Config.RealReportInterval)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				if a.Metrics.counter.pollCount > 0 {
+					a.Report(ctx)
+				}
+				timer.Reset(a.Config.RealReportInterval)
+			}
 		}
 	}()
 	wg.Wait()
+	if a.Metrics.counter.pollCount > 0 {
+		// We don't want waiting sends report with retries if server not reachable
+		timeoutCtx, cncl := context.WithTimeout(context.Background(), config.GracefulTimeout)
+		defer cncl()
+		a.Report(timeoutCtx)
+	}
+	log.Info("shutdown complete")
 	return nil
 }
 

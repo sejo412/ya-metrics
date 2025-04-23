@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
+	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/sejo412/ya-metrics/pkg/utils"
 )
 
@@ -65,8 +65,10 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	return router
 }
 
-func StartServer(opts *config.Options,
+func StartServer(ctx context.Context, opts *config.Options,
 	logs *logger.Middleware) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	log := logs.Logger
 	if opts.Config.CryptoKey != "" {
 		k, err := os.ReadFile(opts.Config.CryptoKey)
@@ -77,6 +79,15 @@ func StartServer(opts *config.Options,
 		if err != nil {
 			return fmt.Errorf("error load private key: %w", err)
 		}
+	}
+
+	// we wan't check error twice (already checked in main)
+	dsn, _ := storage.ParseDSN(opts.Config.DatabaseDSN)
+	// start flushing metrics on timer
+	if opts.Config.StoreInterval > 0 && dsn.Scheme == "memory" && opts.Config.StoreFile != "" {
+		go func() {
+			FlushingMetrics(ctx, opts.Storage, opts.Config.StoreFile, opts.Config.StoreInterval)
+		}()
 	}
 	router := NewRouterWithConfig(opts, logs)
 
@@ -109,22 +120,7 @@ func StartServer(opts *config.Options,
 		return fmt.Errorf("error starting server: %w", err)
 	}
 	<-idleConnsClosed
-	// continue graceful shutdown
-	var errs error
-	f, err := os.Create(opts.Config.StoreFile)
-	if err != nil {
-		errs = errors.Join(errs, fmt.Errorf("error creating store file: %w", err))
-	} else {
-		ctx, cancel := context.WithTimeout(context.Background(), config.GracefulTimeout)
-		defer cancel()
-		if er := opts.Storage.Flush(ctx, f); er != nil {
-			errs = errors.Join(errs, fmt.Errorf("error flushing store file: %w", err))
-		}
-		if er := f.Close(); er != nil {
-			errs = errors.Join(errs, fmt.Errorf("error closing store file: %w", err))
-		}
-	}
 	opts.Storage.Close()
 	log.Info("server stopped")
-	return errs
+	return nil
 }
