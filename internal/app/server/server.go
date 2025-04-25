@@ -84,8 +84,11 @@ func StartServer(ctx context.Context, opts *config.Options,
 	// we wan't check error twice (already checked in main)
 	dsn, _ := storage.ParseDSN(opts.Config.DatabaseDSN)
 	// start flushing metrics on timer
+	wg := sync.WaitGroup{}
 	if opts.Config.StoreInterval > 0 && dsn.Scheme == "memory" && opts.Config.StoreFile != "" {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			FlushingMetrics(ctx, opts.Storage, opts.Config.StoreFile, opts.Config.StoreInterval)
 		}()
 	}
