@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -112,6 +113,7 @@ func StartServer(ctx context.Context, opts *config.Options,
 	go func() {
 		<-sigs
 		log.Info("shutting down server...")
+		cancel()
 		ctx, cancel := context.WithTimeout(context.Background(), config.GracefulTimeout)
 		defer cancel()
 		if er := server.Shutdown(ctx); er != nil {
@@ -124,6 +126,7 @@ func StartServer(ctx context.Context, opts *config.Options,
 	}
 	<-idleConnsClosed
 	opts.Storage.Close()
+	wg.Wait()
 	log.Info("server stopped")
 	return nil
 }

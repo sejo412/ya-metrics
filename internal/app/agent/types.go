@@ -3,6 +3,7 @@ package agent
 import (
 	"crypto/rsa"
 	"runtime"
+	"sync"
 
 	"github.com/sejo412/ya-metrics/internal/config"
 )
@@ -16,6 +17,7 @@ type Agent struct {
 type metrics struct {
 	gauge   gauge
 	counter counter
+	mutex   sync.Mutex
 }
 
 type gauge struct {

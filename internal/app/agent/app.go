@@ -131,15 +131,19 @@ func (a *Agent) Poll() {
 	cryptoRand, _ := rand.Int(rand.Reader, big.NewInt(maxRand))
 	m := &runtime.MemStats{}
 	runtime.ReadMemStats(m)
+	a.Metrics.mutex.Lock()
 	a.Metrics.gauge.memStats = m
 	a.Metrics.gauge.randomValue = float64(cryptoRand.Uint64())
 	a.Metrics.counter.pollCount = 1
+	a.Metrics.mutex.Unlock()
 }
 
 // PollPS collects ps metrics.
 func (a *Agent) PollPS() {
 	log := a.Config.Logger
 	m, err := mem.VirtualMemory()
+	a.Metrics.mutex.Lock()
+	defer a.Metrics.mutex.Unlock()
 	if err != nil {
 		log.Error("failed to get memory info")
 	} else {
