@@ -34,9 +34,13 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	router.opts.Config = opts.Config
 	router.opts.Storage = opts.Storage
 	router.opts.PrivateKey = opts.PrivateKey
+	router.opts.TrustedSubnets = opts.TrustedSubnets
 
 	// middlewares
 	router.Use(logs.WithLogging)
+	if len(*router.opts.TrustedSubnets) > 0 {
+		router.Use(router.checkXRealIPHandler)
+	}
 	router.Use(middleware.WithValue("key", opts.Config.Key))
 	if router.opts.PrivateKey != nil {
 		router.Use(router.decryptHandler)
@@ -82,6 +86,15 @@ func StartServer(ctx context.Context, opts *config.Options,
 		}
 	}
 
+	warnings := make([]string, 0)
+	if opts.Config.TrustedSubnet != "" {
+		var er error
+		opts.TrustedSubnets, er = stringCIDRsToIPNets(opts.Config.TrustedSubnet)
+		if er != nil {
+			warnings = append(warnings, er.Error())
+		}
+	}
+
 	// we wan't check error twice (already checked in main)
 	dsn, _ := storage.ParseDSN(opts.Config.DatabaseDSN)
 	// start flushing metrics on timer
@@ -123,6 +136,9 @@ func StartServer(ctx context.Context, opts *config.Options,
 	}()
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("error starting server: %w", err)
+	}
+	if len(warnings) > 0 {
+		log.Warnln("server started with warnings: %v", warnings)
 	}
 	<-idleConnsClosed
 	opts.Storage.Close()

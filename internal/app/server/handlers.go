@@ -313,3 +313,18 @@ func (cr *Router) pingStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (cr *Router) checkXRealIPHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// skip checks if not POST method
+		if r.Method != http.MethodPost {
+			next.ServeHTTP(w, r)
+		}
+		xRealIP := r.Header.Get("X-Real-Ip")
+		if !isNetsContainsIP(xRealIP, cr.opts.TrustedSubnets) {
+			http.Error(w, models.ErrHTTPForbidden.Error(), http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 
 	"github.com/caarlos0/env/v6"
@@ -21,6 +22,7 @@ const (
 	DefaultStoreFile     string = "/tmp/metrics.json" // file for saved metrics
 	DefaultRestore       bool   = true                // restore metrics from file at startup
 	DefaultDatabaseDSN   string = ""                  // default dsn string
+	DefaultTrustedSubnet string = ""                  // default trusted CIDR
 )
 
 // ServerConfig contains configuration for server application.
@@ -33,6 +35,8 @@ type ServerConfig struct {
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key,omitempty"`
 	// StoreFile - file for saved metrics.
 	StoreFile string `env:"STORE_FILE" json:"store_file,omitempty"`
+	// TrustedSubnet - trusted CIDR (comma separated) for incoming connections.
+	TrustedSubnet string `env:"TRUSTED_SUBNET" json:"trusted_subnet,omitempty"`
 	// DatabaseDSN - dsn string.
 	DatabaseDSN string `env:"DATABASE_DSN" json:"database_dsn,omitempty"`
 	// Key - string for sign data.
@@ -73,6 +77,8 @@ type Options struct {
 	PrivateKey *rsa.PrivateKey
 	// Config - used configuration.
 	Config ServerConfig
+	// TrustedSubnets - used for restrict access only from trusted networks.
+	TrustedSubnets *[]net.IPNet
 }
 
 // NewServerConfig returns new *ServerConfig
@@ -102,6 +108,9 @@ func (s *ServerConfig) Load() error {
 		fmt.Sprintf("secret key (default: %q)", DefaultSecretKey))
 	flagCryptoKey := flagSet.String("crypto-key", "",
 		fmt.Sprintf("path to public key (default: %q)", DefaultCryptoKey))
+	flagTrustedSubnet := flagSet.StringP("trusted_subnet", "t", "",
+		fmt.Sprintf("comma separated trusted subnets CIDR for incoming requests, example %q (default: %q)",
+			"192.168.0.0/24,127.0.0.0/8", DefaultTrustedSubnet))
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		return fmt.Errorf("error parse flags: %w", err)
@@ -138,6 +147,9 @@ func (s *ServerConfig) Load() error {
 	if flagSet.Changed("crypto_key") {
 		s.CryptoKey = *flagCryptoKey
 	}
+	if flagSet.Changed("trusted_subnet") {
+		s.TrustedSubnet = *flagTrustedSubnet
+	}
 
 	// rewrite flags from envs
 	err := env.Parse(s)
@@ -166,6 +178,9 @@ func (s *ServerConfig) Load() error {
 	}
 	if s.CryptoKey == "" {
 		s.CryptoKey = DefaultCryptoKey
+	}
+	if s.TrustedSubnet == "" {
+		s.TrustedSubnet = DefaultTrustedSubnet
 	}
 	return nil
 }

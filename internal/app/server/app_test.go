@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
 	"github.com/sejo412/ya-metrics/internal/storage"
@@ -78,6 +79,120 @@ func TestGetAllMetricValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, GetAllMetricValues(store), "GetAllMetricValues(%v)", store)
+		})
+	}
+}
+
+func Test_stringCIDRsToIPNets(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *[]net.IPNet
+		wantErr bool
+	}{
+		{
+			name: "Valid IPv4 CIDRs",
+			args: args{
+				s: "192.168.1.0/24,127.0.0.1/8",
+			},
+			want: &[]net.IPNet{
+				{
+					IP:   []byte{192, 168, 1, 0},
+					Mask: []byte{255, 255, 255, 0},
+				},
+				{
+					IP:   []byte{127, 0, 0, 0},
+					Mask: []byte{255, 0, 0, 0},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid cidr",
+			args: args{
+				s: "300.300.300.300/12",
+			},
+			want:    &[]net.IPNet{},
+			wantErr: true,
+		},
+		{
+			name: "first valid, second invalid",
+			args: args{
+				s: "192.168.1.0/24, 300.300.300.300/12",
+			},
+			want: &[]net.IPNet{
+				{
+					IP:   []byte{192, 168, 1, 0},
+					Mask: []byte{255, 255, 255, 0},
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := stringCIDRsToIPNets(tt.args.s)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("stringCIDRsToIPNets() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_isNetsContainsIP(t *testing.T) {
+	nets := []net.IPNet{
+		{
+			IP:   []byte{192, 168, 1, 0},
+			Mask: []byte{255, 255, 255, 0},
+		},
+		{
+			IP:   []byte{127, 0, 0, 0},
+			Mask: []byte{255, 0, 0, 0},
+		},
+	}
+	type args struct {
+		ip   string
+		nets *[]net.IPNet
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "contains ip",
+			args: args{
+				ip:   "192.168.1.200",
+				nets: &nets,
+			},
+			want: true,
+		},
+		{
+			name: "not contains ip",
+			args: args{
+				ip:   "192.168.2.200",
+				nets: &nets,
+			},
+			want: false,
+		},
+		{
+			name: "empty ip",
+			args: args{
+				ip:   "",
+				nets: &nets,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, isNetsContainsIP(tt.args.ip, tt.args.nets), "isNetsContainsIP(%v, %v)",
+				tt.args.ip,
+				tt.args.nets)
 		})
 	}
 }
