@@ -120,7 +120,11 @@ func StartServer(ctx context.Context, opts *config.Options,
 		"address", opts.Config.Address,
 		"storeInterval", opts.Config.StoreInterval,
 		"fileStoragePath", opts.Config.StoreFile,
-		"restore", opts.Config.Restore)
+		"restore", opts.Config.Restore,
+		"trustedSubnets", opts.TrustedSubnets)
+	if len(warnings) > 0 {
+		log.Warnln("warnings: ", warnings)
+	}
 	server := &http.Server{
 		Addr:              opts.Config.Address,
 		Handler:           router,
@@ -143,9 +147,6 @@ func StartServer(ctx context.Context, opts *config.Options,
 	}()
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("error starting server: %w", err)
-	}
-	if len(warnings) > 0 {
-		log.Warnln("server started with warnings: %v", warnings)
 	}
 	<-idleConnsClosed
 	opts.Storage.Close()
