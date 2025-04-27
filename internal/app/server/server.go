@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,7 +35,11 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	router.opts.Config = opts.Config
 	router.opts.Storage = opts.Storage
 	router.opts.PrivateKey = opts.PrivateKey
-	router.opts.TrustedSubnets = opts.TrustedSubnets
+	if opts.TrustedSubnets != nil {
+		router.opts.TrustedSubnets = opts.TrustedSubnets
+	} else {
+		router.opts.TrustedSubnets = &[]net.IPNet{}
+	}
 
 	// middlewares
 	router.Use(logs.WithLogging)
@@ -93,6 +98,8 @@ func StartServer(ctx context.Context, opts *config.Options,
 		if er != nil {
 			warnings = append(warnings, er.Error())
 		}
+	} else {
+		opts.TrustedSubnets = &[]net.IPNet{}
 	}
 
 	// we wan't check error twice (already checked in main)

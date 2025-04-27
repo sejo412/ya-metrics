@@ -153,8 +153,9 @@ func Test_handleUpdate(t *testing.T) {
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithConfig(&config.Options{
-				Config:  cfg,
-				Storage: store,
+				Config:         cfg,
+				Storage:        store,
+				TrustedSubnets: &[]net.IPNet{},
 			}, lm)
 			ts := httptest.NewServer(r)
 			defer ts.Close()
