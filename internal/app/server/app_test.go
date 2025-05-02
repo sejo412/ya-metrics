@@ -88,9 +88,9 @@ func Test_stringCIDRsToIPNets(t *testing.T) {
 		s string
 	}
 	tests := []struct {
+		want    *[]net.IPNet
 		name    string
 		args    args
-		want    *[]net.IPNet
 		wantErr bool
 	}{
 		{
@@ -155,12 +155,12 @@ func Test_isNetsContainsIP(t *testing.T) {
 		},
 	}
 	type args struct {
-		ip   string
 		nets *[]net.IPNet
+		ip   string
 	}
 	tests := []struct {
-		name string
 		args args
+		name string
 		want bool
 	}{
 		{

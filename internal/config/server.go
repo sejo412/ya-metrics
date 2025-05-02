@@ -75,10 +75,10 @@ type Options struct {
 	Storage Storage
 	// PrivateKey - used for decrypt data.
 	PrivateKey *rsa.PrivateKey
-	// Config - used configuration.
-	Config ServerConfig
 	// TrustedSubnets - used for restrict access only from trusted networks.
 	TrustedSubnets *[]net.IPNet
+	// Config - used configuration.
+	Config ServerConfig
 }
 
 // NewServerConfig returns new *ServerConfig

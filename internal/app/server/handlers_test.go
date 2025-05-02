@@ -550,7 +550,6 @@ func TestRouter_getValue(t *testing.T) {
 func TestRouter_checkXRealIPHandler(t *testing.T) {
 	type args struct {
 		xRealIPHeader string
-		request       string
 	}
 	type want struct {
 		code int
@@ -606,6 +605,9 @@ func TestRouter_checkXRealIPHandler(t *testing.T) {
 			}
 			body := bytes.NewBuffer([]byte(`{"id": "testGauge90", "type": "gauge", "value": 99.11}`))
 			resp, _ := testRequest(t, ts, http.MethodPost, "/update/", header, body)
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 			assert.Equal(t, tt.want.code, resp.StatusCode, tt.name)
 		})
 	}
