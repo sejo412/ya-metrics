@@ -164,7 +164,6 @@ func (a *Agent) PollPS() {
 
 // Report gets metrics and run postMetricByPath function.
 func (a *Agent) Report(ctx context.Context) {
-	var err error
 	log := a.Config.Logger
 	report := new(report)
 	report.mutex.Lock()
@@ -195,7 +194,7 @@ func (a *Agent) Report(ctx context.Context) {
 	report.mutex.Unlock()
 	// Try post batch
 	if !a.Config.PathStyle {
-		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+		err := utils.WithRetry(ctx, log, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
 			return a.postMetricsBatch(ctx, report)
@@ -207,6 +206,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 
 	// Try post without batch
+	report.mutex.Lock()
 	lenMetrics := len(report.gauge) + len(report.counter)
 	metricsChan := make(chan string, lenMetrics)
 	for name, value := range report.gauge {
@@ -217,6 +217,7 @@ func (a *Agent) Report(ctx context.Context) {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindCounter + "/" + name
 		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
+	report.mutex.Unlock()
 	close(metricsChan)
 
 	errChan := make(chan error, lenMetrics)
@@ -225,6 +226,7 @@ func (a *Agent) Report(ctx context.Context) {
 		wg.Add(1)
 		go func(ch <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
+			var err error
 			for metric := range ch {
 				if a.Config.PathStyle {
 					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
