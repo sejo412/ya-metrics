@@ -8,7 +8,7 @@ all: server agent staticlint
 
 .PHONY: server
 server:
-	go build -ldflags \
+	go build -race -ldflags \
 		"-X '$(MODULE).BuildVersion=$(BUILD_VERSION)'\
 		-X '$(MODULE).BuildCommit=$(BUILD_COMMIT)'\
 		-X '$(MODULE).BuildDate=$(BUILD_DATE)'"\
@@ -16,7 +16,7 @@ server:
 
 .PHONY: agent
 agent:
-	go build -ldflags \
+	go build -race -ldflags \
 		"-X '$(MODULE).BuildVersion=$(BUILD_VERSION)'\
 		-X '$(MODULE).BuildCommit=$(BUILD_COMMIT)'\
 		-X '$(MODULE).BuildDate=$(BUILD_DATE)'"\

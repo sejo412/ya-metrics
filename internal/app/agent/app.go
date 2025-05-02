@@ -108,7 +108,10 @@ func (a *Agent) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				if a.Metrics.counter.pollCount > 0 {
+				a.Metrics.mutex.Lock()
+				pollCount := a.Metrics.counter.pollCount
+				a.Metrics.mutex.Unlock()
+				if pollCount > 0 {
 					a.Report(ctx)
 				}
 				timer.Reset(a.Config.RealReportInterval)
@@ -165,7 +168,9 @@ func (a *Agent) Report(ctx context.Context) {
 	report := new(report)
 	report.gauge = make(map[string]float64)
 	report.counter = make(map[string]int64)
+	a.Metrics.mutex.Lock()
 	runtimeMetrics := models.RuntimeMetricsMap(a.Metrics.gauge.memStats)
+	a.Metrics.mutex.Unlock()
 	for key, value := range runtimeMetrics {
 		switch v := value.(type) {
 		case uint64:
@@ -176,6 +181,7 @@ func (a *Agent) Report(ctx context.Context) {
 			report.gauge[key] = v
 		}
 	}
+	a.Metrics.mutex.Lock()
 	report.gauge[models.MetricNameRandomValue] = a.Metrics.gauge.randomValue
 	report.counter[models.MetricNamePollCount] = a.Metrics.counter.pollCount
 	report.gauge[models.MetricNameTotalMemory] = a.Metrics.gauge.psStats.totalMemory
@@ -183,7 +189,7 @@ func (a *Agent) Report(ctx context.Context) {
 	for core, value := range a.Metrics.gauge.psStats.cpuUtilization {
 		report.gauge[core] = value
 	}
-
+	a.Metrics.mutex.Unlock()
 	// Try post batch
 	if !a.Config.PathStyle {
 		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
