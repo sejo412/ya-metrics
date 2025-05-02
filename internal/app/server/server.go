@@ -115,13 +115,19 @@ func StartServer(ctx context.Context, opts *config.Options,
 	}
 	router := NewRouterWithConfig(opts, logs)
 
+	// convert trusted subnets to human readable format
+	hrTrustedSubnets := make([]string, 0, len(*opts.TrustedSubnets))
+	for _, subnet := range *opts.TrustedSubnets {
+		hrTrustedSubnets = append(hrTrustedSubnets, subnet.String())
+	}
+
 	log.Infow("server starting",
 		"version", config.GetVersion(),
 		"address", opts.Config.Address,
 		"storeInterval", opts.Config.StoreInterval,
 		"fileStoragePath", opts.Config.StoreFile,
 		"restore", opts.Config.Restore,
-		"trustedSubnets", opts.TrustedSubnets)
+		"trustedSubnets", hrTrustedSubnets)
 	if len(warnings) > 0 {
 		log.Warnln("warnings: ", warnings)
 	}

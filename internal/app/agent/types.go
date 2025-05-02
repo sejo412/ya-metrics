@@ -33,6 +33,7 @@ type counter struct {
 type report struct {
 	gauge   map[string]float64
 	counter map[string]int64
+	mutex   sync.Mutex
 }
 
 type psStats struct {

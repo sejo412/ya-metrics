@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -166,6 +167,7 @@ func (a *Agent) Report(ctx context.Context) {
 	var err error
 	log := a.Config.Logger
 	report := new(report)
+	report.mutex.Lock()
 	report.gauge = make(map[string]float64)
 	report.counter = make(map[string]int64)
 	a.Metrics.mutex.Lock()
@@ -190,6 +192,7 @@ func (a *Agent) Report(ctx context.Context) {
 		report.gauge[core] = value
 	}
 	a.Metrics.mutex.Unlock()
+	report.mutex.Unlock()
 	// Try post batch
 	if !a.Config.PathStyle {
 		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
@@ -246,6 +249,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
+// Encrypt body with public key
 func (a *Agent) Encrypt(body *[]byte) ([]byte, error) {
 	if a.PublicKey == nil {
 		return *body, nil
@@ -333,6 +337,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	a.Sign(&gziped, req)
+	a.setXRealIP(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed post request: %w", err)
@@ -367,6 +372,7 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	a.Sign(&gziped, req)
+	a.setXRealIP(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
@@ -377,6 +383,8 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 }
 
 func reportToMetricsV2(report *report) []models.MetricV2 {
+	report.mutex.Lock()
+	defer report.mutex.Unlock()
 	metrics := make([]models.MetricV2, 0, len(report.gauge)+len(report.counter))
 	for name, value := range report.gauge {
 		metric := models.MetricV2{
@@ -395,4 +403,24 @@ func reportToMetricsV2(report *report) []models.MetricV2 {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+// getOutboundIP determine outgoing IP from fake UDP request to server.
+func (a *Agent) getOutboundIP() net.IP {
+	conn, err := net.Dial("udp4", a.Config.Address)
+	if err != nil {
+		a.Config.Logger.Warn("failed to dial server. Skipping")
+		return nil
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	return conn.LocalAddr().(*net.UDPAddr).IP
+}
+
+func (a *Agent) setXRealIP(req *http.Request) {
+	addr := a.getOutboundIP()
+	if addr != nil {
+		req.Header.Set("X-Real-IP", addr.String())
+	}
 }
