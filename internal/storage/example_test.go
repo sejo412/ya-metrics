@@ -32,12 +32,12 @@ func ExampleMemoryStorage_Get() {
 
 func ExampleMemoryStorage_MassUpsert() {
 	metrics := []models.Metric{
-		models.Metric{
+		{
 			Kind:  models.MetricKindGauge,
 			Name:  "metric1",
 			Value: "88.99",
 		},
-		models.Metric{
+		{
 			Kind:  models.MetricKindCounter,
 			Name:  "metric2",
 			Value: "2",

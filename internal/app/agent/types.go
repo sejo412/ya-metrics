@@ -1,19 +1,23 @@
 package agent
 
 import (
+	"crypto/rsa"
 	"runtime"
+	"sync"
 
 	"github.com/sejo412/ya-metrics/internal/config"
 )
 
 type Agent struct {
-	Metrics *metrics
-	Config  *config.AgentConfig
+	Metrics   *metrics
+	Config    *config.AgentConfig
+	PublicKey *rsa.PublicKey
 }
 
 type metrics struct {
 	gauge   gauge
 	counter counter
+	mutex   sync.Mutex
 }
 
 type gauge struct {

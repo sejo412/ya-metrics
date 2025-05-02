@@ -91,6 +91,29 @@ func checkHashHandle(next http.Handler) http.Handler {
 	})
 }
 
+func (cr *Router) decryptHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer func() {
+			_ = r.Body.Close()
+		}()
+		var data []byte
+		if len(body) > 0 {
+			data, err = utils.Decode(body, cr.opts.PrivateKey)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		r.Body = io.NopCloser(bytes.NewReader(data))
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
 	metric := models.Metric{
 		Kind:  chi.URLParam(r, "kind"),
@@ -105,15 +128,15 @@ func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
 
 	cfg := cr.opts.Config
 	if cfg.StoreInterval == 0 {
-		f, err := os.Create(cfg.FileStoragePath)
+		f, err := os.Create(cfg.StoreFile)
 		defer func() {
 			_ = f.Close()
 		}()
 		if err != nil {
-			log.Printf("error create file %s: %v", cfg.FileStoragePath, err)
+			log.Printf("error create file %s: %v", cfg.StoreFile, err)
 		}
 		if err = store.Flush(context.TODO(), f); err != nil {
-			log.Printf("%v: flush store %s", err, cfg.FileStoragePath)
+			log.Printf("%v: flush store %s", err, cfg.StoreFile)
 		}
 	}
 }
@@ -193,15 +216,15 @@ func (cr *Router) postUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := cr.opts.Config
 	if cfg.StoreInterval == 0 {
-		f, err1 := os.Create(cfg.FileStoragePath)
+		f, err1 := os.Create(cfg.StoreFile)
 		defer func() {
 			_ = f.Close()
 		}()
 		if err1 != nil {
-			log.Printf("error create file %s: %v", cfg.FileStoragePath, err1)
+			log.Printf("error create file %s: %v", cfg.StoreFile, err1)
 		}
 		if err2 := store.Flush(context.TODO(), f); err2 != nil {
-			log.Printf("%v: flush store %s", err2, cfg.FileStoragePath)
+			log.Printf("%v: flush store %s", err2, cfg.StoreFile)
 		}
 	}
 	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)

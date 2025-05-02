@@ -8,7 +8,6 @@ require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/kisielk/errcheck v1.9.0
-	github.com/securego/gosec/v2 v2.22.3
 	github.com/shirou/gopsutil/v4 v4.24.12
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
@@ -22,6 +21,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/ebitengine/purego v0.8.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.4.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

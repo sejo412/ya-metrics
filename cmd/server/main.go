@@ -3,15 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	_ "net/http/pprof"
 	"os"
 
-	"github.com/caarlos0/env/v6"
 	"github.com/sejo412/ya-metrics/internal/app/server"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/storage"
-	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 )
 
@@ -22,20 +19,11 @@ func main() {
 }
 
 func run() error {
-	// startup config init
-	var cfg config.ServerConfig
-	pflag.StringVarP(&cfg.Address, "address", "a", config.DefaultAddress, "Listen address")
-	pflag.IntVarP(&cfg.StoreInterval, "storeInterval", "i", config.DefaultStoreInterval, "Store interval")
-	pflag.StringVarP(&cfg.FileStoragePath, "fileStoragePath", "f", config.DefaultFileStoragePath, "File storage path")
-	pflag.BoolVarP(&cfg.Restore, "restore", "r", config.DefaultRestore, "Restore metrics")
-	pflag.StringVarP(&cfg.DatabaseDSN, "database-dsn", "d", config.DefaultDatabaseDSN, "Database DSN")
-	pflag.StringVarP(&cfg.Key, "key", "k", config.DefaultSecretKey, "secret key")
-	pflag.Parse()
-	err := env.Parse(&cfg)
-	if err != nil {
-		return fmt.Errorf("parse config: %w", err)
+	var err error
+	cfg := config.NewServerConfig()
+	if err = cfg.Load(); err != nil {
+		return fmt.Errorf("error load config: %w", err)
 	}
-
 	// logger init
 	logs, err := zap.NewDevelopment()
 	if err != nil {
@@ -63,42 +51,39 @@ func run() error {
 		return fmt.Errorf("database \"%s\" not supported", cfg.DatabaseDSN)
 	}
 
-	ctx := context.Background()
-	if err = store.Open(ctx, dsn); err != nil {
+	ctxStore := context.Background()
+	if err = store.Open(ctxStore, dsn); err != nil {
 		return fmt.Errorf("error open database: %w", err)
 	}
 	defer store.Close()
-	if err = store.Init(ctx); err != nil {
+	if err = store.Init(ctxStore); err != nil {
 		return fmt.Errorf("error init database: %w", err)
 	}
 
 	// try restore metrics
 	skipRestore := false
-	if cfg.Restore {
-		f, err := os.Open(cfg.FileStoragePath)
+	if *cfg.Restore {
+		f, err := os.Open(cfg.StoreFile)
 		if err != nil {
 			log.Errorw("error open file",
-				"file", cfg.FileStoragePath)
+				"file", cfg.StoreFile)
 			skipRestore = true
 		}
 		if !skipRestore {
 			if err = store.Load(context.TODO(), f); err != nil {
 				log.Errorw("error load file",
-					"file", cfg.FileStoragePath)
+					"file", cfg.StoreFile)
 			}
 			if err := f.Close(); err != nil {
 				log.Errorw("error close file",
-					"file", cfg.FileStoragePath)
+					"file", cfg.StoreFile)
 			}
 		}
 	}
 
-	// start flushing metrics on timer
-	if cfg.StoreInterval > 0 && dsn.Scheme == "memory" {
-		go server.FlushingMetrics(store, cfg.FileStoragePath, cfg.StoreInterval)
-	}
-	return server.StartServer(&config.Options{
-		Config:  cfg,
+	ctx := context.Background()
+	return server.StartServer(ctx, &config.Options{
+		Config:  *cfg,
 		Storage: store,
 	},
 		lm)

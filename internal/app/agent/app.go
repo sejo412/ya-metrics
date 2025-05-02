@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
@@ -45,39 +47,83 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 
 // Run starts agent application.
 func (a *Agent) Run(ctx context.Context) error {
-	var err error
+	if a.Config.CryptoKey != "" {
+		k, err := os.ReadFile(a.Config.CryptoKey)
+		if err != nil {
+			return fmt.Errorf("error read crypto key: %w", err)
+		}
+		a.PublicKey, err = utils.LoadRSAPublicKey(k)
+		if err != nil {
+			return fmt.Errorf("error loading public key: %w", err)
+		}
+	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, config.GracefulSignals...)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	log := a.Config.Logger
 	var wg sync.WaitGroup
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		for {
-			a.Poll()
-			time.Sleep(a.Config.RealPollInterval)
-		}
+		<-sigs
+		log.Info("shutting down...")
+		cancel()
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		timer := time.NewTimer(a.Config.RealPollInterval)
+		defer timer.Stop()
 		for {
-			a.PollPS()
-			time.Sleep(a.Config.RealPollInterval)
-		}
-	}()
-	time.Sleep(1 * time.Second)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			// skip if function start before polling
-			if a.Metrics.counter.pollCount == 0 {
-				continue
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				a.Poll()
+				timer.Reset(a.Config.RealPollInterval)
 			}
-			a.Report(ctx)
-			time.Sleep(a.Config.RealReportInterval)
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timer := time.NewTimer(a.Config.RealPollInterval)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				a.PollPS()
+				timer.Reset(a.Config.RealPollInterval)
+			}
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timer := time.NewTimer(a.Config.RealReportInterval)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				if a.Metrics.counter.pollCount > 0 {
+					a.Report(ctx)
+				}
+				timer.Reset(a.Config.RealReportInterval)
+			}
 		}
 	}()
 	wg.Wait()
-	return err
+	if a.Metrics.counter.pollCount > 0 {
+		// We don't want waiting sends report with retries if server not reachable
+		timeoutCtx, cncl := context.WithTimeout(context.Background(), config.GracefulTimeout)
+		defer cncl()
+		a.Report(timeoutCtx)
+	}
+	log.Info("shutdown complete")
+	return nil
 }
 
 // Poll collects runtime metrics.
@@ -85,15 +131,19 @@ func (a *Agent) Poll() {
 	cryptoRand, _ := rand.Int(rand.Reader, big.NewInt(maxRand))
 	m := &runtime.MemStats{}
 	runtime.ReadMemStats(m)
+	a.Metrics.mutex.Lock()
 	a.Metrics.gauge.memStats = m
 	a.Metrics.gauge.randomValue = float64(cryptoRand.Uint64())
 	a.Metrics.counter.pollCount = 1
+	a.Metrics.mutex.Unlock()
 }
 
 // PollPS collects ps metrics.
 func (a *Agent) PollPS() {
 	log := a.Config.Logger
 	m, err := mem.VirtualMemory()
+	a.Metrics.mutex.Lock()
+	defer a.Metrics.mutex.Unlock()
 	if err != nil {
 		log.Error("failed to get memory info")
 	} else {
@@ -190,6 +240,17 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
+func (a *Agent) Encrypt(body *[]byte) ([]byte, error) {
+	if a.PublicKey == nil {
+		return *body, nil
+	}
+	encrypted, err := utils.Encode(*body, a.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt body: %w", err)
+	}
+	return encrypted, nil
+}
+
 // Sign signs data with key.
 func (a *Agent) Sign(body *[]byte, r *http.Request) {
 	if a.Config.Key == "" {
@@ -254,9 +315,12 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	if err != nil {
 		return fmt.Errorf("failed compress metric: %w", err)
 	}
-
+	data, err := a.Encrypt(&gziped)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt metrics: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address+"/"+models.MetricPathPostPrefix+"/",
-		bytes.NewBuffer(gziped))
+		bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("failed build request: %w", err)
 	}
@@ -284,9 +348,13 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	if err != nil {
 		return fmt.Errorf("failed to compress metrics: %w", err)
 	}
+	data, err := a.Encrypt(&gziped)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt metrics: %w", err)
+	}
 	uri := address + "/" + models.MetricPathPostsPrefix + "/"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri,
-		bytes.NewBuffer(gziped))
+		bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

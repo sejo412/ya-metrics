@@ -53,20 +53,36 @@ func GetAllMetricValues(st config.Storage) map[string]string {
 }
 
 // FlushingMetrics saves metrics to file.
-func FlushingMetrics(st config.Storage, file string, interval int) {
+func FlushingMetrics(ctx context.Context, st config.Storage, file string, interval int) {
+	timer := time.NewTimer(time.Duration(interval) * time.Second)
+	defer timer.Stop()
 	for {
-		f, err := os.Create(file)
-		if err != nil {
-			log.Printf("error create file %s: %v\n", file, err)
+		select {
+		case <-ctx.Done():
+			if err := flushToFile(ctx, st, file); err != nil {
+				log.Printf("failed flush to file: %v", err)
+			}
 			return
+		case <-timer.C:
+			if err := flushToFile(ctx, st, file); err != nil {
+				log.Printf("failed flush to file: %v", err)
+			}
+			timer.Reset(time.Duration(interval) * time.Second)
 		}
-		if err = st.Flush(context.TODO(), f); err != nil {
-			log.Printf("Error flushing metrics: %s", err.Error())
-		}
-		err = f.Close()
-		if err != nil {
-			log.Printf("error closing file %s: %v\n", file, err)
-		}
-		time.Sleep(time.Duration(interval) * time.Second)
 	}
+}
+
+func flushToFile(ctx context.Context, st config.Storage, file string) error {
+	f, err := os.Create(file)
+	if err != nil {
+		return fmt.Errorf("error create file %s: %v", file, err)
+	}
+	if err = st.Flush(ctx, f); err != nil {
+		return fmt.Errorf("error flushing metrics: %v", err)
+	}
+	err = f.Close()
+	if err != nil {
+		return fmt.Errorf("error closing file %s: %v", file, err)
+	}
+	return nil
 }
