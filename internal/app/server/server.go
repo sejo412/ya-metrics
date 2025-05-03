@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,9 +35,17 @@ func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router 
 	router.opts.Config = opts.Config
 	router.opts.Storage = opts.Storage
 	router.opts.PrivateKey = opts.PrivateKey
+	if opts.TrustedSubnets != nil {
+		router.opts.TrustedSubnets = opts.TrustedSubnets
+	} else {
+		router.opts.TrustedSubnets = &[]net.IPNet{}
+	}
 
 	// middlewares
 	router.Use(logs.WithLogging)
+	if len(*router.opts.TrustedSubnets) > 0 {
+		router.Use(router.checkXRealIPHandler)
+	}
 	router.Use(middleware.WithValue("key", opts.Config.Key))
 	if router.opts.PrivateKey != nil {
 		router.Use(router.decryptHandler)
@@ -82,6 +91,17 @@ func StartServer(ctx context.Context, opts *config.Options,
 		}
 	}
 
+	warnings := make([]string, 0)
+	if opts.Config.TrustedSubnet != "" {
+		var er error
+		opts.TrustedSubnets, er = stringCIDRsToIPNets(opts.Config.TrustedSubnet)
+		if er != nil {
+			warnings = append(warnings, er.Error())
+		}
+	} else {
+		opts.TrustedSubnets = &[]net.IPNet{}
+	}
+
 	// we wan't check error twice (already checked in main)
 	dsn, _ := storage.ParseDSN(opts.Config.DatabaseDSN)
 	// start flushing metrics on timer
@@ -95,12 +115,22 @@ func StartServer(ctx context.Context, opts *config.Options,
 	}
 	router := NewRouterWithConfig(opts, logs)
 
+	// convert trusted subnets to human readable format
+	hrTrustedSubnets := make([]string, 0, len(*opts.TrustedSubnets))
+	for _, subnet := range *opts.TrustedSubnets {
+		hrTrustedSubnets = append(hrTrustedSubnets, subnet.String())
+	}
+
 	log.Infow("server starting",
 		"version", config.GetVersion(),
 		"address", opts.Config.Address,
 		"storeInterval", opts.Config.StoreInterval,
 		"fileStoragePath", opts.Config.StoreFile,
-		"restore", opts.Config.Restore)
+		"restore", opts.Config.Restore,
+		"trustedSubnets", hrTrustedSubnets)
+	if len(warnings) > 0 {
+		log.Warnln("warnings: ", warnings)
+	}
 	server := &http.Server{
 		Addr:              opts.Config.Address,
 		Handler:           router,

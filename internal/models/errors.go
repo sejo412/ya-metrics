@@ -13,6 +13,7 @@ var (
 	ErrNotInteger              = errors.New("not integer")           // error if metric not integer
 	ErrNotSupported            = errors.New("not supported")         // error if metric not float nor integer
 	ErrUnmarshalling           = errors.New("error unmarshalling")   // error for unmarshalling error
+	ErrHTTPForbidden           = errors.New("forbidden")             // error for 403
 )
 
 const (

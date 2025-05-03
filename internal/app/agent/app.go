@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -108,7 +109,10 @@ func (a *Agent) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				if a.Metrics.counter.pollCount > 0 {
+				a.Metrics.mutex.Lock()
+				pollCount := a.Metrics.counter.pollCount
+				a.Metrics.mutex.Unlock()
+				if pollCount > 0 {
 					a.Report(ctx)
 				}
 				timer.Reset(a.Config.RealReportInterval)
@@ -160,12 +164,14 @@ func (a *Agent) PollPS() {
 
 // Report gets metrics and run postMetricByPath function.
 func (a *Agent) Report(ctx context.Context) {
-	var err error
 	log := a.Config.Logger
 	report := new(report)
+	report.mutex.Lock()
 	report.gauge = make(map[string]float64)
 	report.counter = make(map[string]int64)
+	a.Metrics.mutex.Lock()
 	runtimeMetrics := models.RuntimeMetricsMap(a.Metrics.gauge.memStats)
+	a.Metrics.mutex.Unlock()
 	for key, value := range runtimeMetrics {
 		switch v := value.(type) {
 		case uint64:
@@ -176,6 +182,7 @@ func (a *Agent) Report(ctx context.Context) {
 			report.gauge[key] = v
 		}
 	}
+	a.Metrics.mutex.Lock()
 	report.gauge[models.MetricNameRandomValue] = a.Metrics.gauge.randomValue
 	report.counter[models.MetricNamePollCount] = a.Metrics.counter.pollCount
 	report.gauge[models.MetricNameTotalMemory] = a.Metrics.gauge.psStats.totalMemory
@@ -183,10 +190,11 @@ func (a *Agent) Report(ctx context.Context) {
 	for core, value := range a.Metrics.gauge.psStats.cpuUtilization {
 		report.gauge[core] = value
 	}
-
+	a.Metrics.mutex.Unlock()
+	report.mutex.Unlock()
 	// Try post batch
 	if !a.Config.PathStyle {
-		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+		err := utils.WithRetry(ctx, log, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
 			return a.postMetricsBatch(ctx, report)
@@ -198,6 +206,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 
 	// Try post without batch
+	report.mutex.Lock()
 	lenMetrics := len(report.gauge) + len(report.counter)
 	metricsChan := make(chan string, lenMetrics)
 	for name, value := range report.gauge {
@@ -208,6 +217,7 @@ func (a *Agent) Report(ctx context.Context) {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindCounter + "/" + name
 		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
+	report.mutex.Unlock()
 	close(metricsChan)
 
 	errChan := make(chan error, lenMetrics)
@@ -216,6 +226,7 @@ func (a *Agent) Report(ctx context.Context) {
 		wg.Add(1)
 		go func(ch <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
+			var err error
 			for metric := range ch {
 				if a.Config.PathStyle {
 					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
@@ -240,6 +251,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
+// Encrypt body with public key
 func (a *Agent) Encrypt(body *[]byte) ([]byte, error) {
 	if a.PublicKey == nil {
 		return *body, nil
@@ -327,6 +339,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	a.Sign(&gziped, req)
+	a.setXRealIP(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed post request: %w", err)
@@ -361,6 +374,7 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	a.Sign(&gziped, req)
+	a.setXRealIP(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
@@ -371,6 +385,8 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 }
 
 func reportToMetricsV2(report *report) []models.MetricV2 {
+	report.mutex.Lock()
+	defer report.mutex.Unlock()
 	metrics := make([]models.MetricV2, 0, len(report.gauge)+len(report.counter))
 	for name, value := range report.gauge {
 		metric := models.MetricV2{
@@ -389,4 +405,24 @@ func reportToMetricsV2(report *report) []models.MetricV2 {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+// getOutboundIP determine outgoing IP from fake UDP request to server.
+func (a *Agent) getOutboundIP() net.IP {
+	conn, err := net.Dial("udp4", a.Config.Address)
+	if err != nil {
+		a.Config.Logger.Warn("failed to dial server. Skipping")
+		return nil
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	return conn.LocalAddr().(*net.UDPAddr).IP
+}
+
+func (a *Agent) setXRealIP(req *http.Request) {
+	addr := a.getOutboundIP()
+	if addr != nil {
+		req.Header.Set("X-Real-IP", addr.String())
+	}
 }

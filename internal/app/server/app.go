@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sejo412/ya-metrics/internal/config"
@@ -85,4 +87,34 @@ func flushToFile(ctx context.Context, st config.Storage, file string) error {
 		return fmt.Errorf("error closing file %s: %v", file, err)
 	}
 	return nil
+}
+
+func stringCIDRsToIPNets(s string) (*[]net.IPNet, error) {
+	var err error
+	splited := strings.Split(s, ",")
+	nets := make([]net.IPNet, 0)
+	for _, cidr := range splited {
+		var er error
+		var n *net.IPNet
+		_, n, er = net.ParseCIDR(cidr)
+		if er != nil {
+			err = errors.Join(err, fmt.Errorf("error parsing cidr: %s", cidr))
+		} else {
+			nets = append(nets, *n)
+		}
+	}
+	return &nets, err
+}
+
+func isNetsContainsIP(ip string, nets *[]net.IPNet) bool {
+	address := net.ParseIP(ip)
+	if address == nil {
+		return false
+	}
+	for _, n := range *nets {
+		if n.Contains(address) {
+			return true
+		}
+	}
+	return false
 }

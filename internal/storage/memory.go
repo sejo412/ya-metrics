@@ -82,6 +82,8 @@ func (s *MemoryStorage) MassUpsert(ctx context.Context, metrics []models.Metric)
 // kind not implemented for RAM storage.
 func (s *MemoryStorage) Get(ctx context.Context, kind, name string) (models.Metric, error) {
 	// kind not used in this implementation, because name is "primary key" for MemoryStorage
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	if metric, ok := s.metrics[name]; ok {
 		return metric, nil
 	}
@@ -90,10 +92,12 @@ func (s *MemoryStorage) Get(ctx context.Context, kind, name string) (models.Metr
 
 // GetAll returns slice of all metrics.
 func (s *MemoryStorage) GetAll(ctx context.Context) ([]models.Metric, error) {
+	s.mutex.Lock()
 	metrics := make([]models.Metric, 0, len(s.metrics))
 	for _, metric := range s.metrics {
 		metrics = append(metrics, metric)
 	}
+	s.mutex.Unlock()
 	sort.Slice(metrics, func(i, j int) bool {
 		return metrics[i].Name < metrics[j].Name
 	})
