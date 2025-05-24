@@ -20,8 +20,11 @@ import (
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/pkg/utils"
+	pb "github.com/sejo412/ya-metrics/proto"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -162,7 +165,7 @@ func (a *Agent) PollPS() {
 	}
 }
 
-// Report gets metrics and run postMetricByPath function.
+// Report gets metrics and send their via http or grpc.
 func (a *Agent) Report(ctx context.Context) {
 	log := a.Config.Logger
 	report := new(report)
@@ -192,6 +195,20 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 	a.Metrics.mutex.Unlock()
 	report.mutex.Unlock()
+
+	// Try to send report via grpc and fallback to http if error
+	if config.ModeFromString(a.Config.Mode) == config.GRPCMode {
+		err := utils.WithRetry(ctx, log, func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
+			defer cancel()
+			return a.sendViaGRPC(ctx, reportToPbMetrics(report))
+		})
+		if err == nil {
+			return
+		}
+		log.Error("failed to send via gRPC metrics: ", err)
+	}
+
 	// Try post batch
 	if !a.Config.PathStyle {
 		err := utils.WithRetry(ctx, log, func(ctx context.Context) error {
@@ -407,6 +424,29 @@ func reportToMetricsV2(report *report) []models.MetricV2 {
 	return metrics
 }
 
+func reportToPbMetrics(report *report) []*pb.Metric {
+	report.mutex.Lock()
+	defer report.mutex.Unlock()
+	m := make([]*pb.Metric, 0, len(report.gauge)+len(report.counter))
+	for name, value := range report.gauge {
+		kind := pb.MType_GAUGE
+		m = append(m, &pb.Metric{
+			Type:  &kind,
+			Id:    &name,
+			Value: &value,
+		})
+	}
+	for name, value := range report.counter {
+		kind := pb.MType_COUNTER
+		m = append(m, &pb.Metric{
+			Type:  &kind,
+			Id:    &name,
+			Delta: &value,
+		})
+	}
+	return m
+}
+
 // getOutboundIP determine outgoing IP from fake UDP request to server.
 func (a *Agent) getOutboundIP() net.IP {
 	conn, err := net.Dial("udp4", a.Config.Address)
@@ -425,4 +465,24 @@ func (a *Agent) setXRealIP(req *http.Request) {
 	if addr != nil {
 		req.Header.Set("X-Real-IP", addr.String())
 	}
+}
+
+func (a *Agent) sendViaGRPC(ctx context.Context, metrics []*pb.Metric) error {
+	log := a.Config.Logger
+	client, err := grpc.NewClient(a.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to create grpc client: %w", err)
+	}
+	defer func() {
+		_ = client.Close()
+	}()
+	c := pb.NewMetricsClient(client)
+	resp, err := c.SendMetrics(ctx, &pb.SendMetricsRequest{
+		Metrics: metrics,
+	})
+	if err != nil || (resp != nil && resp.Error != nil) {
+		return fmt.Errorf("failed to send metrics: %w", err)
+	}
+	log.Info("Sent via gRPC: ", metrics)
+	return nil
 }

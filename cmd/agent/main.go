@@ -36,6 +36,7 @@ func run() error {
 	l.Infow("agent starting",
 		"version", version,
 		"server", cfg.Address,
+		"mode", cfg.Mode,
 		"reportInterval", cfg.RealReportInterval,
 		"pollInterval", cfg.RealPollInterval,
 		"pathStyle", cfg.PathStyle,

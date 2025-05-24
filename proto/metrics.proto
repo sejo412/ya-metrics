@@ -1,0 +1,53 @@
+edition = "2023";
+
+package metrics;
+
+option go_package = "ya-metrics/proto";
+
+import "google/protobuf/empty.proto";
+
+enum MType {
+  UNKNOWN = 0;
+  COUNTER = 1;
+  GAUGE = 2;
+}
+
+message Metric {
+  string id = 1;
+  MType type = 2;
+  int64 delta = 3;
+  double value = 4;
+}
+
+message SendMetricsRequest {
+  repeated Metric metrics = 1;
+}
+
+message SendMetricsResponse {
+  string error = 1;
+}
+
+message GetMetricRequest {
+  string id = 1;
+}
+
+message GetMetricResponse {
+  Metric metric = 1;
+  string error = 2;
+}
+
+message GetMetricsResponse {
+  repeated Metric metrics = 1;
+  string error = 2;
+}
+
+message PingStorageResponse {
+  bool ok = 1;
+}
+
+service Metrics {
+  rpc SendMetrics(SendMetricsRequest) returns (SendMetricsResponse);
+  rpc GetMetric(GetMetricRequest) returns (GetMetricResponse);
+  rpc GetMetrics(google.protobuf.Empty) returns (GetMetricsResponse);
+  rpc PingStorage(google.protobuf.Empty) returns (PingStorageResponse);
+}

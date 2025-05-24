@@ -20,6 +20,7 @@ const (
 	DefaultPathStyle      bool   = false            // default uses path-style
 	ContextTimeout               = 1 * time.Second  // timeout for network communications
 	DefaultRateLimit      int    = 2
+	DefaultMode                  = HTTPModeName
 )
 
 // AgentConfig contains configuration for agent application.
@@ -32,6 +33,8 @@ type AgentConfig struct {
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key,omitempty"`
 	// Key for crypt data.
 	Key string `env:"KEY" json:"key,omitempty"`
+	// Mode http or grpc agent mode.
+	Mode string `env:"MODE" json:"mode,omitempty"`
 	// ReportInterval - how often send reports.
 	ReportInterval int `env:"REPORT_INTERVAL" json:"report_interval,omitempty"`
 	// PollInterval - how often poll runtime metrics.
@@ -68,6 +71,8 @@ func (a *AgentConfig) Load() error {
 		fmt.Sprintf("path to public key for encrypt requests (default %q)", DefaultCryptoKey))
 	pflag.IntVarP(&cfg.RateLimit, "limit", "l", 0,
 		fmt.Sprintf("rate limit in seconds (default %d)", DefaultRateLimit))
+	pflag.StringVarP(&cfg.Mode, "mode", "m", "",
+		fmt.Sprintf("mode to use (default %q)", DefaultMode))
 	pflag.Parse()
 	if *cfgFile != "" {
 		// rewrite flags from config (needs only for parsing config file)
@@ -105,6 +110,13 @@ func (a *AgentConfig) Load() error {
 	if cfg.RateLimit == 0 {
 		cfg.RateLimit = DefaultRateLimit
 	}
+	if cfg.Mode == "" {
+		cfg.Mode = DefaultMode
+	}
+	// Check agent Mode.
+	if !ModeFromString(cfg.Mode).IsValid() {
+		return fmt.Errorf("invalid mode %q", cfg.Mode)
+	}
 	// fill agent params
 	a.Address = cfg.Address
 	a.CryptoKey = cfg.CryptoKey
@@ -115,5 +127,6 @@ func (a *AgentConfig) Load() error {
 	a.RealReportInterval = time.Duration(cfg.ReportInterval) * time.Second
 	a.RealPollInterval = time.Duration(cfg.PollInterval) * time.Second
 	a.PathStyle = cfg.PathStyle
+	a.Mode = cfg.Mode
 	return nil
 }

@@ -3,6 +3,8 @@ package models
 import (
 	"runtime"
 	"strconv"
+
+	pb "github.com/sejo412/ya-metrics/proto"
 )
 
 // RuntimeMetricsMap returns mapping for runtime metrics.
@@ -83,4 +85,33 @@ func ConvertV2ToV1(m *MetricV2) (*Metric, error) {
 		metric.Value = strconv.FormatFloat(*m.Value, 'f', -1, metricBitSize)
 	}
 	return metric, nil
+}
+
+// ConvertPbToV1 converts protobuf type to V1.
+func ConvertPbToV1(m *pb.Metric) Metric {
+	var mType string
+	var value string
+
+	switch *m.Type {
+	case pb.MType_GAUGE:
+		mType = "gauge"
+		value = strconv.FormatFloat(m.GetValue(), 'f', -1, metricBitSize)
+	case pb.MType_COUNTER:
+		mType = "counter"
+		value = strconv.FormatInt(m.GetDelta(), base10)
+	}
+	return Metric{
+		Kind:  mType,
+		Name:  *m.Id,
+		Value: value,
+	}
+}
+
+// ConvertPbsToV1s converts protobuf type to V1 slices.
+func ConvertPbsToV1s(m []*pb.Metric) []Metric {
+	result := make([]Metric, len(m))
+	for i, metric := range m {
+		result[i] = ConvertPbToV1(metric)
+	}
+	return result
 }

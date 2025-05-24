@@ -17,6 +17,8 @@ import (
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/sejo412/ya-metrics/pkg/utils"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 type Router struct {
@@ -124,6 +126,7 @@ func StartServer(ctx context.Context, opts *config.Options,
 	log.Infow("server starting",
 		"version", config.GetVersion(),
 		"address", opts.Config.Address,
+		"address_grpc", opts.Config.AddressGRPC,
 		"storeInterval", opts.Config.StoreInterval,
 		"fileStoragePath", opts.Config.StoreFile,
 		"restore", opts.Config.Restore,
@@ -135,6 +138,13 @@ func StartServer(ctx context.Context, opts *config.Options,
 		Addr:              opts.Config.Address,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	grpcServer := grpc.NewServer()
+	RegisterGRPCServer(grpcServer)
+	grpcListener, err := net.Listen("tcp", opts.Config.AddressGRPC)
+	if err != nil {
+		return err
 	}
 
 	idleConnsClosed := make(chan struct{})
@@ -149,11 +159,28 @@ func StartServer(ctx context.Context, opts *config.Options,
 		if er := server.Shutdown(ctx); er != nil {
 			log.Errorf("error shutting down server: %v", er)
 		}
+		grpcServer.GracefulStop()
 		close(idleConnsClosed)
 	}()
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("error starting server: %w", err)
+	var errGroup errgroup.Group
+	errGroup.Go(func() error {
+		return grpcServer.Serve(grpcListener)
+	})
+	errGroup.Go(func() error {
+		return server.ListenAndServe()
+	})
+	if err = errGroup.Wait(); err != nil {
+		return fmt.Errorf("error starting server: %v", err)
 	}
+	/*
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			return fmt.Errorf("error starting server: %w", err)
+		}
+		if err := grpcServer.Serve(grpcListener); err != nil {
+			return fmt.Errorf("error starting server: %w", err)
+		}
+
+	*/
 	<-idleConnsClosed
 	opts.Storage.Close()
 	wg.Wait()

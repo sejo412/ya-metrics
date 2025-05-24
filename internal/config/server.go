@@ -18,6 +18,7 @@ import (
 // Default settings for server.
 const (
 	DefaultAddress       string = ":8080"             // listen address
+	DefaultAddressGRPC   string = ":3200"             // listen grpc address
 	DefaultStoreInterval int    = 300                 // how often flush metrics from memory to disk
 	DefaultStoreFile     string = "/tmp/metrics.json" // file for saved metrics
 	DefaultRestore       bool   = true                // restore metrics from file at startup
@@ -31,6 +32,8 @@ type ServerConfig struct {
 	Restore *bool `env:"RESTORE" json:"restore,omitempty"`
 	// Address - listen address.
 	Address string `env:"ADDRESS" json:"address,omitempty"`
+	// AddressGRPC - listen grpc address.
+	AddressGRPC string `env:"ADDRESS_GRPC" json:"address_grpc,omitempty"`
 	// CryptoKey - path to private key
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key,omitempty"`
 	// StoreFile - file for saved metrics.
@@ -96,6 +99,8 @@ func (s *ServerConfig) Load() error {
 		"path to config file in JSON format")
 	flagAddress := flagSet.StringP("address", "a", "",
 		fmt.Sprintf("Listen address (default: %q)", DefaultAddress))
+	flagAddressGRPC := flagSet.StringP("grpc", "g", "",
+		fmt.Sprintf("Listen GRPC address (default: %q)", DefaultAddressGRPC))
 	flagStoreInterval := flagSet.IntP("storeInterval", "i", 0,
 		fmt.Sprintf("Store interval (default: %d)", DefaultStoreInterval))
 	flagStoreFile := flagSet.StringP("storeFile", "f", "",
@@ -129,6 +134,9 @@ func (s *ServerConfig) Load() error {
 	if flagSet.Changed("address") {
 		s.Address = *flagAddress
 	}
+	if flagSet.Changed("grpc") {
+		s.AddressGRPC = *flagAddressGRPC
+	}
 	if flagSet.Changed("store_interval") {
 		s.StoreInterval = *flagStoreInterval
 	}
@@ -159,6 +167,9 @@ func (s *ServerConfig) Load() error {
 	// moved from flags default values because it overwrites config if not specified
 	if s.Address == "" {
 		s.Address = DefaultAddress
+	}
+	if s.AddressGRPC == "" {
+		s.AddressGRPC = DefaultAddressGRPC
 	}
 	if s.StoreInterval == 0 {
 		s.StoreInterval = DefaultStoreInterval
