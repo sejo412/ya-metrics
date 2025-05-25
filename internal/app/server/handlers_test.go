@@ -13,11 +13,10 @@ import (
 	"testing"
 
 	"github.com/sejo412/ya-metrics/internal/config"
-	logger2 "github.com/sejo412/ya-metrics/internal/logger"
+	"github.com/sejo412/ya-metrics/internal/logger"
 	m "github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 var cfg = config.ServerConfig{
@@ -26,6 +25,8 @@ var cfg = config.ServerConfig{
 	StoreFile:     "/tmp/testing_metrics.json",
 	Restore:       new(bool),
 }
+
+var lm = logger.MustNewLogger(false)
 
 const notFound = "404 page not found"
 
@@ -144,19 +145,13 @@ func Test_handleUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewDevelopment()
-			defer func() {
-				_ = logger.Sync()
-			}()
-			sugar := logger.Sugar()
-			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
-
 			r := NewRouterWithOptions(&config.Options{
 				Config:         cfg,
 				Storage:        store,
-				TrustedSubnets: &[]net.IPNet{},
-			}, lm)
+				TrustedSubnets: []net.IPNet{},
+				Logger:         *lm,
+			})
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodPost, tt.request, nil, nil)
@@ -190,18 +185,12 @@ func Test_getIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewDevelopment()
-			defer func() {
-				_ = logger.Sync()
-			}()
-			sugar := logger.Sugar()
-			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
-
 			r := NewRouterWithOptions(&config.Options{
 				Config:  cfg,
 				Storage: store,
-			}, lm)
+				Logger:  *lm,
+			})
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
@@ -289,16 +278,11 @@ func Test_postUpdateJSON(t *testing.T) {
 			},
 		},
 	}
-	logger, _ := zap.NewDevelopment()
-	defer func() {
-		_ = logger.Sync()
-	}()
-	sugar := logger.Sugar()
-	lm := logger2.NewMiddleware(sugar)
 	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: storage.NewMemoryStorage(),
-	}, lm)
+		Logger:  *lm,
+	})
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	for _, tt := range tests {
@@ -357,16 +341,11 @@ func Test_postUpdatesJSON(t *testing.T) {
 			},
 		},
 	}
-	logger, _ := zap.NewDevelopment()
-	defer func() {
-		_ = logger.Sync()
-	}()
-	sugar := logger.Sugar()
-	lm := logger2.NewMiddleware(sugar)
 	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: storage.NewMemoryStorage(),
-	}, lm)
+		Logger:  *lm,
+	})
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	for _, tt := range tests {
@@ -400,18 +379,13 @@ func TestRouter_pingStorage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewDevelopment()
-			defer func() {
-				_ = logger.Sync()
-			}()
-			sugar := logger.Sugar()
-			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
 			r := NewRouterWithOptions(&config.Options{
 				Config:  cfg,
 				Storage: store,
-			}, lm)
+				Logger:  *lm,
+			})
 			ts := httptest.NewServer(r)
 			defer ts.Close()
 			resp, body := testRequest(t, ts, http.MethodGet, tt.request, nil, nil)
@@ -458,17 +432,12 @@ func TestRouter_getMetricJSON(t *testing.T) {
 			},
 		},
 	}
-	logger, _ := zap.NewDevelopment()
-	defer func() {
-		_ = logger.Sync()
-	}()
-	sugar := logger.Sugar()
-	lm := logger2.NewMiddleware(sugar)
 	store := storage.NewMemoryStorage()
 	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: store,
-	}, lm)
+		Logger:  *lm,
+	})
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	_ = store.Upsert(context.Background(), m.Metric{
@@ -516,17 +485,12 @@ func TestRouter_getValue(t *testing.T) {
 			},
 		},
 	}
-	logger, _ := zap.NewDevelopment()
-	defer func() {
-		_ = logger.Sync()
-	}()
-	sugar := logger.Sugar()
-	lm := logger2.NewMiddleware(sugar)
 	store := storage.NewMemoryStorage()
 	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: store,
-	}, lm)
+		Logger:  *lm,
+	})
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	_ = store.Upsert(context.Background(), m.Metric{
@@ -578,23 +542,18 @@ func TestRouter_checkXRealIPHandler(t *testing.T) {
 			},
 		},
 	}
-	logger, _ := zap.NewDevelopment()
-	defer func() {
-		_ = logger.Sync()
-	}()
-	sugar := logger.Sugar()
-	lm := logger2.NewMiddleware(sugar)
 	store := storage.NewMemoryStorage()
 	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: store,
-		TrustedSubnets: &[]net.IPNet{
+		TrustedSubnets: []net.IPNet{
 			{
 				IP:   []byte{127, 0, 0, 0},
 				Mask: []byte{255, 0, 0, 0},
 			},
 		},
-	}, lm)
+		Logger: *lm,
+	})
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 	for _, tt := range tests {

@@ -200,7 +200,7 @@ func (a *Agent) Report(ctx context.Context) {
 	a.Metrics.mutex.Unlock()
 	report.mutex.Unlock()
 
-	// Try to send report via grpc and TODO fallback to http if error
+	// Try to send report via grpc
 	if config.ModeFromString(a.Config.Mode) == config.GRPCMode {
 		err := utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)

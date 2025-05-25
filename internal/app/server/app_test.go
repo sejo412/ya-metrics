@@ -88,7 +88,7 @@ func Test_stringCIDRsToIPNets(t *testing.T) {
 		s string
 	}
 	tests := []struct {
-		want    *[]net.IPNet
+		want    []net.IPNet
 		name    string
 		args    args
 		wantErr bool
@@ -98,7 +98,7 @@ func Test_stringCIDRsToIPNets(t *testing.T) {
 			args: args{
 				s: "192.168.1.0/24,127.0.0.1/8",
 			},
-			want: &[]net.IPNet{
+			want: []net.IPNet{
 				{
 					IP:   []byte{192, 168, 1, 0},
 					Mask: []byte{255, 255, 255, 0},
@@ -115,7 +115,7 @@ func Test_stringCIDRsToIPNets(t *testing.T) {
 			args: args{
 				s: "300.300.300.300/12",
 			},
-			want:    &[]net.IPNet{},
+			want:    []net.IPNet{},
 			wantErr: true,
 		},
 		{
@@ -123,7 +123,7 @@ func Test_stringCIDRsToIPNets(t *testing.T) {
 			args: args{
 				s: "192.168.1.0/24, 300.300.300.300/12",
 			},
-			want: &[]net.IPNet{
+			want: []net.IPNet{
 				{
 					IP:   []byte{192, 168, 1, 0},
 					Mask: []byte{255, 255, 255, 0},
@@ -155,7 +155,7 @@ func Test_isNetsContainsIP(t *testing.T) {
 		},
 	}
 	type args struct {
-		nets *[]net.IPNet
+		nets []net.IPNet
 		ip   string
 	}
 	tests := []struct {
@@ -167,7 +167,7 @@ func Test_isNetsContainsIP(t *testing.T) {
 			name: "contains ip",
 			args: args{
 				ip:   "192.168.1.200",
-				nets: &nets,
+				nets: nets,
 			},
 			want: true,
 		},
@@ -175,7 +175,7 @@ func Test_isNetsContainsIP(t *testing.T) {
 			name: "not contains ip",
 			args: args{
 				ip:   "192.168.2.200",
-				nets: &nets,
+				nets: nets,
 			},
 			want: false,
 		},
@@ -183,7 +183,7 @@ func Test_isNetsContainsIP(t *testing.T) {
 			name: "empty ip",
 			args: args{
 				ip:   "",
-				nets: &nets,
+				nets: nets,
 			},
 			want: false,
 		},

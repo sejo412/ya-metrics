@@ -98,55 +98,21 @@ func TestLoggingResponseWriter_WriteHeader(t *testing.T) {
 
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
-		want    *Logger
-		name    string
-		wantErr bool
+		want *Logger
+		name string
 	}{
 		{
 			name: "MustNewLogger",
 			want: &Logger{
-				testSugaredLogger.Sugar(),
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := MustNewLogger(false)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MustNewLogger() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got.Level(), tt.want.Level()) {
-				t.Errorf("MustNewLogger() got = %v, want %v", got.Level(), tt.want.Level())
-			}
-		})
-	}
-}
-
-func TestNewMiddleware(t *testing.T) {
-	type args struct {
-		logger *zap.SugaredLogger
-	}
-	tests := []struct {
-		args args
-		want *Middleware
-		name string
-	}{
-		{
-			name: "NewMiddleware",
-			args: args{
-				logger: testSugaredLogger.Sugar(),
-			},
-			want: &Middleware{
-				testSugaredLogger.Sugar(),
+				Logger: testSugaredLogger.Sugar(),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewMiddleware(tt.args.logger); !reflect.DeepEqual(got.Logger.Level(), tt.want.Logger.Level()) {
-				t.Errorf("NewMiddleware() = %v, want %v", got.Logger.Level(), tt.want.Logger.Level())
+			got := MustNewLogger(false)
+			if !reflect.DeepEqual(got.Logger.Level(), tt.want.Logger.Level()) {
+				t.Errorf("MustNewLogger() got = %v, want %v", got.Logger.Level(), tt.want.Logger.Level())
 			}
 		})
 	}

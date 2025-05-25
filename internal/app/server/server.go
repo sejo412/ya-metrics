@@ -134,7 +134,7 @@ func StartServer(ctx context.Context, opts *config.Options,
 	errGroup.Go(func() error {
 		return httpServer.ListenAndServe()
 	})
-	if err = errGroup.Wait(); err != nil {
+	if err = errGroup.Wait(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("error starting server: %w", err)
 	}
 	<-idleConnsClosed

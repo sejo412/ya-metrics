@@ -4,7 +4,7 @@ BUILD_COMMIT ?= $$(git rev-parse HEAD)
 BUILD_DATE ?= $$(date -R)
 
 .PHONY: all
-all: proto server agent
+all: proto server agent staticlint
 
 .PHONY: server
 server:
