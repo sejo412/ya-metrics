@@ -146,7 +146,7 @@ func (g *GRPCServer) interceptorCheckHash(ctx context.Context, req interface{}, 
 	if len(hash) == 0 {
 		return nil, status.Error(codes.Unauthenticated, "missing hash")
 	}
-	r, ok := req.(pb.SendMetricsRequest)
+	r, ok := req.(*pb.SendMetricsRequest)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "invalid request")
 	}
@@ -167,9 +167,9 @@ func gRPCServerOptions(server *GRPCServer, key string) []grpc.ServerOption {
 	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
 	unaryInterceptors = append(unaryInterceptors,
 		logging.UnaryServerInterceptor(interceptorLogger(&server.opts.Logger)))
-	realIpOpts := interceptorXRealIPOptions(server.opts.TrustedSubnets)
-	if realIpOpts != nil {
-		unaryInterceptors = append(unaryInterceptors, realip.UnaryServerInterceptorOpts(realIpOpts...))
+	realIPOpts := interceptorXRealIPOptions(server.opts.TrustedSubnets)
+	if realIPOpts != nil {
+		unaryInterceptors = append(unaryInterceptors, realip.UnaryServerInterceptorOpts(realIPOpts...))
 	}
 	if key != "" {
 		unaryInterceptors = append(unaryInterceptors, server.interceptorCheckHash)
