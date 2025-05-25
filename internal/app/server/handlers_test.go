@@ -21,6 +21,7 @@ import (
 
 var cfg = config.ServerConfig{
 	Address:       ":8080",
+	AddressGRPC:   ":3200",
 	StoreInterval: 30,
 	StoreFile:     "/tmp/testing_metrics.json",
 	Restore:       new(bool),

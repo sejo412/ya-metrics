@@ -77,14 +77,14 @@ type Storage interface {
 type Options struct {
 	// Storage - used storage backend.
 	Storage Storage
-	// PrivateKey - used for decrypt data.
-	PrivateKey *rsa.PrivateKey
-	// TrustedSubnets - used for restrict access only from trusted networks.
-	TrustedSubnets []net.IPNet
-	// Config - used configuration.
-	Config ServerConfig
 	// Logger - used logger.
 	Logger logger.Logger
+	// PrivateKey - used for decrypt data.
+	PrivateKey *rsa.PrivateKey
+	// Config - used configuration.
+	Config ServerConfig
+	// TrustedSubnets - used for restrict access only from trusted networks.
+	TrustedSubnets []net.IPNet
 }
 
 // NewServerConfig returns new *ServerConfig
