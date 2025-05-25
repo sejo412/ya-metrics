@@ -161,7 +161,7 @@ func TestAgent_Report(t *testing.T) {
 	}))
 	defer server.Close()
 	address, _ := strings.CutPrefix(server.URL, "http://")
-	logs, _ := logger.NewLogger()
+	logs, _ := logger.MustNewLogger(false)
 	type fields struct {
 		Metrics *metrics
 		Config  *config.AgentConfig
@@ -247,7 +247,7 @@ func TestAgent_postMetric(t *testing.T) {
 	}))
 	defer server.Close()
 	address, _ := strings.CutPrefix(server.URL, "http://")
-	logs, _ := logger.NewLogger()
+	logs, _ := logger.MustNewLogger(false)
 	agentConfig := &config.AgentConfig{
 		Logger:    logs,
 		Address:   address,

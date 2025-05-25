@@ -230,6 +230,7 @@ func (x *SendMetricsResponse) GetError() string {
 type GetMetricRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            *string                `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Kind          *MType                 `protobuf:"varint,2,opt,name=kind,enum=metrics.MType" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -269,6 +270,13 @@ func (x *GetMetricRequest) GetId() string {
 		return *x.Id
 	}
 	return ""
+}
+
+func (x *GetMetricRequest) GetKind() MType {
+	if x != nil && x.Kind != nil {
+		return *x.Kind
+	}
+	return MType_UNKNOWN
 }
 
 type GetMetricResponse struct {
@@ -432,9 +440,10 @@ const file_proto_metrics_proto_rawDesc = "" +
 	"\x12SendMetricsRequest\x12)\n" +
 	"\ametrics\x18\x01 \x03(\v2\x0f.metrics.MetricR\ametrics\"+\n" +
 	"\x13SendMetricsResponse\x12\x14\n" +
-	"\x05error\x18\x01 \x01(\tR\x05error\"\"\n" +
+	"\x05error\x18\x01 \x01(\tR\x05error\"F\n" +
 	"\x10GetMetricRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"R\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x0e.metrics.MTypeR\x04kind\"R\n" +
 	"\x11GetMetricResponse\x12'\n" +
 	"\x06metric\x18\x01 \x01(\v2\x0f.metrics.MetricR\x06metric\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"U\n" +
@@ -482,21 +491,22 @@ var file_proto_metrics_proto_goTypes = []any{
 var file_proto_metrics_proto_depIdxs = []int32{
 	0, // 0: metrics.Metric.type:type_name -> metrics.MType
 	1, // 1: metrics.SendMetricsRequest.metrics:type_name -> metrics.Metric
-	1, // 2: metrics.GetMetricResponse.metric:type_name -> metrics.Metric
-	1, // 3: metrics.GetMetricsResponse.metrics:type_name -> metrics.Metric
-	2, // 4: metrics.Metrics.SendMetrics:input_type -> metrics.SendMetricsRequest
-	4, // 5: metrics.Metrics.GetMetric:input_type -> metrics.GetMetricRequest
-	8, // 6: metrics.Metrics.GetMetrics:input_type -> google.protobuf.Empty
-	8, // 7: metrics.Metrics.PingStorage:input_type -> google.protobuf.Empty
-	3, // 8: metrics.Metrics.SendMetrics:output_type -> metrics.SendMetricsResponse
-	5, // 9: metrics.Metrics.GetMetric:output_type -> metrics.GetMetricResponse
-	6, // 10: metrics.Metrics.GetMetrics:output_type -> metrics.GetMetricsResponse
-	7, // 11: metrics.Metrics.PingStorage:output_type -> metrics.PingStorageResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0, // 2: metrics.GetMetricRequest.kind:type_name -> metrics.MType
+	1, // 3: metrics.GetMetricResponse.metric:type_name -> metrics.Metric
+	1, // 4: metrics.GetMetricsResponse.metrics:type_name -> metrics.Metric
+	2, // 5: metrics.Metrics.SendMetrics:input_type -> metrics.SendMetricsRequest
+	4, // 6: metrics.Metrics.GetMetric:input_type -> metrics.GetMetricRequest
+	8, // 7: metrics.Metrics.GetMetrics:input_type -> google.protobuf.Empty
+	8, // 8: metrics.Metrics.PingStorage:input_type -> google.protobuf.Empty
+	3, // 9: metrics.Metrics.SendMetrics:output_type -> metrics.SendMetricsResponse
+	5, // 10: metrics.Metrics.GetMetric:output_type -> metrics.GetMetricResponse
+	6, // 11: metrics.Metrics.GetMetrics:output_type -> metrics.GetMetricsResponse
+	7, // 12: metrics.Metrics.PingStorage:output_type -> metrics.PingStorageResponse
+	9, // [9:13] is the sub-list for method output_type
+	5, // [5:9] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_proto_metrics_proto_init() }

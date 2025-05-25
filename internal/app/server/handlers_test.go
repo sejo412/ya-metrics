@@ -152,7 +152,7 @@ func Test_handleUpdate(t *testing.T) {
 			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
-			r := NewRouterWithConfig(&config.Options{
+			r := NewRouterWithOptions(&config.Options{
 				Config:         cfg,
 				Storage:        store,
 				TrustedSubnets: &[]net.IPNet{},
@@ -198,7 +198,7 @@ func Test_getIndex(t *testing.T) {
 			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
-			r := NewRouterWithConfig(&config.Options{
+			r := NewRouterWithOptions(&config.Options{
 				Config:  cfg,
 				Storage: store,
 			}, lm)
@@ -295,7 +295,7 @@ func Test_postUpdateJSON(t *testing.T) {
 	}()
 	sugar := logger.Sugar()
 	lm := logger2.NewMiddleware(sugar)
-	r := NewRouterWithConfig(&config.Options{
+	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: storage.NewMemoryStorage(),
 	}, lm)
@@ -363,7 +363,7 @@ func Test_postUpdatesJSON(t *testing.T) {
 	}()
 	sugar := logger.Sugar()
 	lm := logger2.NewMiddleware(sugar)
-	r := NewRouterWithConfig(&config.Options{
+	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: storage.NewMemoryStorage(),
 	}, lm)
@@ -408,7 +408,7 @@ func TestRouter_pingStorage(t *testing.T) {
 			lm := logger2.NewMiddleware(sugar)
 			store := storage.NewMemoryStorage()
 
-			r := NewRouterWithConfig(&config.Options{
+			r := NewRouterWithOptions(&config.Options{
 				Config:  cfg,
 				Storage: store,
 			}, lm)
@@ -465,7 +465,7 @@ func TestRouter_getMetricJSON(t *testing.T) {
 	sugar := logger.Sugar()
 	lm := logger2.NewMiddleware(sugar)
 	store := storage.NewMemoryStorage()
-	r := NewRouterWithConfig(&config.Options{
+	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: store,
 	}, lm)
@@ -523,7 +523,7 @@ func TestRouter_getValue(t *testing.T) {
 	sugar := logger.Sugar()
 	lm := logger2.NewMiddleware(sugar)
 	store := storage.NewMemoryStorage()
-	r := NewRouterWithConfig(&config.Options{
+	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: store,
 	}, lm)
@@ -585,7 +585,7 @@ func TestRouter_checkXRealIPHandler(t *testing.T) {
 	sugar := logger.Sugar()
 	lm := logger2.NewMiddleware(sugar)
 	store := storage.NewMemoryStorage()
-	r := NewRouterWithConfig(&config.Options{
+	r := NewRouterWithOptions(&config.Options{
 		Config:  cfg,
 		Storage: store,
 		TrustedSubnets: &[]net.IPNet{

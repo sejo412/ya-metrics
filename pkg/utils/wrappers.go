@@ -20,7 +20,7 @@ func WithRetry(ctx context.Context, log *logger.Logger, f func(ctx context.Conte
 		if models.ErrIsRetryable(err) {
 			lastErr = err
 			delay := models.RetryInitDelay + time.Duration(attempt)*models.RetryDeltaDelay
-			log.Errorw("attempt failed",
+			log.Logger.Errorw("attempt failed",
 				"attempt", attempt,
 				"delay", delay,
 				"error", lastErr)

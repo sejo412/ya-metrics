@@ -29,6 +29,7 @@ message SendMetricsResponse {
 
 message GetMetricRequest {
   string id = 1;
+  MType kind = 2;
 }
 
 message GetMetricResponse {

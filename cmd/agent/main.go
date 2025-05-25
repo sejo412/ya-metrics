@@ -22,16 +22,13 @@ func run() error {
 	if err = cfg.Load(); err != nil {
 		return fmt.Errorf("error load config: %w", err)
 	}
-	cfg.Logger, err = logger.NewLogger()
-	if err != nil {
-		return err
-	}
+	cfg.Logger = logger.MustNewLogger(false)
 	defer func() {
-		_ = cfg.Logger.Sync()
+		_ = cfg.Logger.Logger.Sync()
 	}()
 
 	a := agent.NewAgent(cfg)
-	l := a.Config.Logger
+	l := a.Config.Logger.Logger
 	version := config.GetVersion()
 	l.Infow("agent starting",
 		"version", version,

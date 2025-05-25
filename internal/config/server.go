@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/caarlos0/env/v6"
+	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/spf13/pflag"
@@ -79,9 +80,11 @@ type Options struct {
 	// PrivateKey - used for decrypt data.
 	PrivateKey *rsa.PrivateKey
 	// TrustedSubnets - used for restrict access only from trusted networks.
-	TrustedSubnets *[]net.IPNet
+	TrustedSubnets []net.IPNet
 	// Config - used configuration.
 	Config ServerConfig
+	// Logger - used logger.
+	Logger logger.Logger
 }
 
 // NewServerConfig returns new *ServerConfig

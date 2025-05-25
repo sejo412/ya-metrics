@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/realip"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/pkg/utils"
@@ -25,6 +26,8 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -65,7 +68,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	signal.Notify(sigs, config.GracefulSignals...)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	var wg sync.WaitGroup
 	go func() {
 		<-sigs
@@ -147,7 +150,7 @@ func (a *Agent) Poll() {
 
 // PollPS collects ps metrics.
 func (a *Agent) PollPS() {
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	m, err := mem.VirtualMemory()
 	a.Metrics.mutex.Lock()
 	defer a.Metrics.mutex.Unlock()
@@ -167,7 +170,8 @@ func (a *Agent) PollPS() {
 
 // Report gets metrics and send their via http or grpc.
 func (a *Agent) Report(ctx context.Context) {
-	log := a.Config.Logger
+	logger := a.Config.Logger
+	log := logger.Logger
 	report := new(report)
 	report.mutex.Lock()
 	report.gauge = make(map[string]float64)
@@ -196,22 +200,22 @@ func (a *Agent) Report(ctx context.Context) {
 	a.Metrics.mutex.Unlock()
 	report.mutex.Unlock()
 
-	// Try to send report via grpc and fallback to http if error
+	// Try to send report via grpc and TODO fallback to http if error
 	if config.ModeFromString(a.Config.Mode) == config.GRPCMode {
-		err := utils.WithRetry(ctx, log, func(ctx context.Context) error {
+		err := utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
 			return a.sendViaGRPC(ctx, reportToPbMetrics(report))
 		})
-		if err == nil {
-			return
+		if err != nil {
+			log.Error("failed to send via gRPC metrics: ", err)
 		}
-		log.Error("failed to send via gRPC metrics: ", err)
+		return
 	}
 
 	// Try post batch
 	if !a.Config.PathStyle {
-		err := utils.WithRetry(ctx, log, func(ctx context.Context) error {
+		err := utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
 			return a.postMetricsBatch(ctx, report)
@@ -246,11 +250,11 @@ func (a *Agent) Report(ctx context.Context) {
 			var err error
 			for metric := range ch {
 				if a.Config.PathStyle {
-					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+					err = utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 						return a.postMetricByPath(ctx, metric)
 					})
 				} else {
-					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+					err = utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 						return a.postMetric(ctx, metric)
 					})
 				}
@@ -292,7 +296,7 @@ func (a *Agent) Sign(body *[]byte, r *http.Request) {
 // postMetricByPath push metrics to server.
 func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	uri := address + "/" + metric
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
@@ -312,7 +316,7 @@ func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
 
 func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	splitedMetric := strings.Split(metric, "/")
 	m := models.MetricV2{
 		ID:    splitedMetric[2],
@@ -368,7 +372,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 
 func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	metrics := reportToMetricsV2(report)
 	body, err := json.Marshal(metrics)
 	if err != nil {
@@ -449,9 +453,10 @@ func reportToPbMetrics(report *report) []*pb.Metric {
 
 // getOutboundIP determine outgoing IP from fake UDP request to server.
 func (a *Agent) getOutboundIP() net.IP {
+	log := a.Config.Logger.Logger
 	conn, err := net.Dial("udp4", a.Config.Address)
 	if err != nil {
-		a.Config.Logger.Warn("failed to dial server. Skipping")
+		log.Warn("failed to dial server. Skipping")
 		return nil
 	}
 	defer func() {
@@ -467,8 +472,23 @@ func (a *Agent) setXRealIP(req *http.Request) {
 	}
 }
 
+func (a *Agent) grpcCallOptions(opts callOpts) []grpc.CallOption {
+	res := make([]grpc.CallOption, 0)
+	res = append(res, grpc.UseCompressor(gzip.Name))
+	addr := a.getOutboundIP()
+	if addr != nil {
+		md := metadata.Pairs(realip.XRealIp, addr.String())
+		res = append(res, grpc.Header(&md))
+	}
+	if opts.hash != "" {
+		md := metadata.Pairs(models.HTTPHeaderSign, opts.hash)
+		res = append(res, grpc.Header(&md))
+	}
+	return res
+}
+
 func (a *Agent) sendViaGRPC(ctx context.Context, metrics []*pb.Metric) error {
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	client, err := grpc.NewClient(a.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to create grpc client: %w", err)
@@ -477,9 +497,19 @@ func (a *Agent) sendViaGRPC(ctx context.Context, metrics []*pb.Metric) error {
 		_ = client.Close()
 	}()
 	c := pb.NewMetricsClient(client)
+
+	opts := newCallOpts()
+	if a.Config.Key != "" {
+		metricsBytes, er := json.Marshal(metrics)
+		if er != nil {
+			log.Errorw("marshal metrics", "error", er)
+			return fmt.Errorf("error marshal metrics: %w", er)
+		}
+		opts.hash = utils.Hash(metricsBytes, a.Config.Key)
+	}
 	resp, err := c.SendMetrics(ctx, &pb.SendMetricsRequest{
 		Metrics: metrics,
-	})
+	}, a.grpcCallOptions(*opts)...)
 	if err != nil || (resp != nil && resp.Error != nil) {
 		return fmt.Errorf("failed to send metrics: %w", err)
 	}

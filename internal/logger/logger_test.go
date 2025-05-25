@@ -103,7 +103,7 @@ func TestNewLogger(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "NewLogger",
+			name: "MustNewLogger",
 			want: &Logger{
 				testSugaredLogger.Sugar(),
 			},
@@ -112,13 +112,13 @@ func TestNewLogger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewLogger()
+			got, err := MustNewLogger(false)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewLogger() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("MustNewLogger() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got.Level(), tt.want.Level()) {
-				t.Errorf("NewLogger() got = %v, want %v", got.Level(), tt.want.Level())
+				t.Errorf("MustNewLogger() got = %v, want %v", got.Level(), tt.want.Level())
 			}
 		})
 	}

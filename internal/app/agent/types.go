@@ -41,3 +41,13 @@ type psStats struct {
 	totalMemory    float64
 	freeMemory     float64
 }
+
+type callOpts struct {
+	hash string
+}
+
+func newCallOpts() *callOpts {
+	return &callOpts{
+		hash: "",
+	}
+}

@@ -89,7 +89,7 @@ func flushToFile(ctx context.Context, st config.Storage, file string) error {
 	return nil
 }
 
-func stringCIDRsToIPNets(s string) (*[]net.IPNet, error) {
+func stringCIDRsToIPNets(s string) ([]net.IPNet, error) {
 	var err error
 	splited := strings.Split(s, ",")
 	nets := make([]net.IPNet, 0)
@@ -103,15 +103,15 @@ func stringCIDRsToIPNets(s string) (*[]net.IPNet, error) {
 			nets = append(nets, *n)
 		}
 	}
-	return &nets, err
+	return nets, err
 }
 
-func isNetsContainsIP(ip string, nets *[]net.IPNet) bool {
+func isNetsContainsIP(ip string, nets []net.IPNet) bool {
 	address := net.ParseIP(ip)
 	if address == nil {
 		return false
 	}
-	for _, n := range *nets {
+	for _, n := range nets {
 		if n.Contains(address) {
 			return true
 		}

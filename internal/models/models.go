@@ -115,3 +115,45 @@ func ConvertPbsToV1s(m []*pb.Metric) []Metric {
 	}
 	return result
 }
+
+// ConvertV1ToPb converts V1 metric to protobuf type.
+func ConvertV1ToPb(m Metric) (*pb.Metric, error) {
+	res := new(pb.Metric)
+	res.Id = &m.Name
+	res.Type, res.Delta, res.Value = nil, nil, nil
+	switch m.Kind {
+	case "counter":
+		mType := pb.MType_COUNTER
+		delta, err := strconv.Atoi(m.Value)
+		value := int64(delta)
+		if err != nil {
+			return nil, ErrNotInteger
+		}
+		res.Type = &mType
+		res.Delta = &value
+	case "gauge":
+		mType := pb.MType_GAUGE
+		value, err := strconv.ParseFloat(m.Value, metricBitSize)
+		if err != nil {
+			return nil, ErrNotFloat
+		}
+		res.Type = &mType
+		res.Value = &value
+	default:
+		return nil, ErrNotSupported
+	}
+	return res, nil
+}
+
+// ConvertV1sToPbs converts V1 metric slice to protobuf slice type.
+func ConvertV1sToPbs(m []Metric) ([]*pb.Metric, error) {
+	var err error
+	result := make([]*pb.Metric, len(m))
+	for i, metric := range m {
+		result[i], err = ConvertV1ToPb(metric)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
