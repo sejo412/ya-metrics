@@ -50,7 +50,7 @@ func TestWithRetry(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	logs, _ := logger.NewLogger()
+	logs := logger.MustNewLogger(false)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := WithRetry(tt.args.ctx, logs, tt.args.f); (err != nil) != tt.wantErr {

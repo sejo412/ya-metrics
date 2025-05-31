@@ -33,10 +33,21 @@ type counter struct {
 type report struct {
 	gauge   map[string]float64
 	counter map[string]int64
+	mutex   sync.Mutex
 }
 
 type psStats struct {
 	cpuUtilization map[string]float64
 	totalMemory    float64
 	freeMemory     float64
+}
+
+type callOpts struct {
+	hash string
+}
+
+func newCallOpts() *callOpts {
+	return &callOpts{
+		hash: "",
+	}
 }

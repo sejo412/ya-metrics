@@ -9,7 +9,6 @@ import (
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/logger"
 	"github.com/sejo412/ya-metrics/internal/storage"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -25,16 +24,11 @@ func run() error {
 		return fmt.Errorf("error load config: %w", err)
 	}
 	// logger init
-	logs, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
+	logs := logger.MustNewLogger(false)
 	defer func() {
-		_ = logs.Sync()
+		_ = logs.Logger.Sync()
 	}()
-	sugar := logs.Sugar()
-	lm := logger.NewMiddleware(sugar)
-	log := lm.Logger
+	log := logs.Logger
 
 	var store config.Storage
 	dsn, err := storage.ParseDSN(cfg.DatabaseDSN)
@@ -80,11 +74,10 @@ func run() error {
 			}
 		}
 	}
-
 	ctx := context.Background()
 	return server.StartServer(ctx, &config.Options{
 		Config:  *cfg,
 		Storage: store,
-	},
-		lm)
+		Logger:  logger.Logger{Logger: log},
+	})
 }

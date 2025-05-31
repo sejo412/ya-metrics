@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,11 +17,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/realip"
 	"github.com/sejo412/ya-metrics/internal/config"
 	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/pkg/utils"
+	pb "github.com/sejo412/ya-metrics/proto"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -61,7 +68,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	signal.Notify(sigs, config.GracefulSignals...)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	var wg sync.WaitGroup
 	go func() {
 		<-sigs
@@ -108,7 +115,10 @@ func (a *Agent) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				if a.Metrics.counter.pollCount > 0 {
+				a.Metrics.mutex.Lock()
+				pollCount := a.Metrics.counter.pollCount
+				a.Metrics.mutex.Unlock()
+				if pollCount > 0 {
 					a.Report(ctx)
 				}
 				timer.Reset(a.Config.RealReportInterval)
@@ -140,7 +150,7 @@ func (a *Agent) Poll() {
 
 // PollPS collects ps metrics.
 func (a *Agent) PollPS() {
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	m, err := mem.VirtualMemory()
 	a.Metrics.mutex.Lock()
 	defer a.Metrics.mutex.Unlock()
@@ -158,14 +168,17 @@ func (a *Agent) PollPS() {
 	}
 }
 
-// Report gets metrics and run postMetricByPath function.
+// Report gets metrics and send their via http or grpc.
 func (a *Agent) Report(ctx context.Context) {
-	var err error
-	log := a.Config.Logger
+	logger := a.Config.Logger
+	log := logger.Logger
 	report := new(report)
+	report.mutex.Lock()
 	report.gauge = make(map[string]float64)
 	report.counter = make(map[string]int64)
+	a.Metrics.mutex.Lock()
 	runtimeMetrics := models.RuntimeMetricsMap(a.Metrics.gauge.memStats)
+	a.Metrics.mutex.Unlock()
 	for key, value := range runtimeMetrics {
 		switch v := value.(type) {
 		case uint64:
@@ -176,6 +189,7 @@ func (a *Agent) Report(ctx context.Context) {
 			report.gauge[key] = v
 		}
 	}
+	a.Metrics.mutex.Lock()
 	report.gauge[models.MetricNameRandomValue] = a.Metrics.gauge.randomValue
 	report.counter[models.MetricNamePollCount] = a.Metrics.counter.pollCount
 	report.gauge[models.MetricNameTotalMemory] = a.Metrics.gauge.psStats.totalMemory
@@ -183,10 +197,25 @@ func (a *Agent) Report(ctx context.Context) {
 	for core, value := range a.Metrics.gauge.psStats.cpuUtilization {
 		report.gauge[core] = value
 	}
+	a.Metrics.mutex.Unlock()
+	report.mutex.Unlock()
+
+	// Try to send report via grpc
+	if config.ModeFromString(a.Config.Mode) == config.GRPCMode {
+		err := utils.WithRetry(ctx, logger, func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
+			defer cancel()
+			return a.sendViaGRPC(ctx, reportToPbMetrics(report))
+		})
+		if err != nil {
+			log.Error("failed to send via gRPC metrics: ", err)
+		}
+		return
+	}
 
 	// Try post batch
 	if !a.Config.PathStyle {
-		err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+		err := utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(ctx, config.ContextTimeout)
 			defer cancel()
 			return a.postMetricsBatch(ctx, report)
@@ -198,6 +227,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 
 	// Try post without batch
+	report.mutex.Lock()
 	lenMetrics := len(report.gauge) + len(report.counter)
 	metricsChan := make(chan string, lenMetrics)
 	for name, value := range report.gauge {
@@ -208,6 +238,7 @@ func (a *Agent) Report(ctx context.Context) {
 		mpath := models.MetricPathPostPrefix + "/" + models.MetricKindCounter + "/" + name
 		metricsChan <- fmt.Sprintf("%s/%v", mpath, value)
 	}
+	report.mutex.Unlock()
 	close(metricsChan)
 
 	errChan := make(chan error, lenMetrics)
@@ -216,13 +247,14 @@ func (a *Agent) Report(ctx context.Context) {
 		wg.Add(1)
 		go func(ch <-chan string, wg *sync.WaitGroup) {
 			defer wg.Done()
+			var err error
 			for metric := range ch {
 				if a.Config.PathStyle {
-					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+					err = utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 						return a.postMetricByPath(ctx, metric)
 					})
 				} else {
-					err = utils.WithRetry(ctx, log, func(ctx context.Context) error {
+					err = utils.WithRetry(ctx, logger, func(ctx context.Context) error {
 						return a.postMetric(ctx, metric)
 					})
 				}
@@ -240,6 +272,7 @@ func (a *Agent) Report(ctx context.Context) {
 	}
 }
 
+// Encrypt body with public key
 func (a *Agent) Encrypt(body *[]byte) ([]byte, error) {
 	if a.PublicKey == nil {
 		return *body, nil
@@ -263,7 +296,7 @@ func (a *Agent) Sign(body *[]byte, r *http.Request) {
 // postMetricByPath push metrics to server.
 func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	uri := address + "/" + metric
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, http.NoBody)
@@ -283,7 +316,7 @@ func (a *Agent) postMetricByPath(ctx context.Context, metric string) error {
 
 func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	splitedMetric := strings.Split(metric, "/")
 	m := models.MetricV2{
 		ID:    splitedMetric[2],
@@ -327,6 +360,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	a.Sign(&gziped, req)
+	a.setXRealIP(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed post request: %w", err)
@@ -338,7 +372,7 @@ func (a *Agent) postMetric(ctx context.Context, metric string) error {
 
 func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	address := fmt.Sprintf("%s://%s", config.ServerScheme, a.Config.Address)
-	log := a.Config.Logger
+	log := a.Config.Logger.Logger
 	metrics := reportToMetricsV2(report)
 	body, err := json.Marshal(metrics)
 	if err != nil {
@@ -361,6 +395,7 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 	req.Header.Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	req.Header.Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
 	a.Sign(&gziped, req)
+	a.setXRealIP(req)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
@@ -371,6 +406,8 @@ func (a *Agent) postMetricsBatch(ctx context.Context, report *report) error {
 }
 
 func reportToMetricsV2(report *report) []models.MetricV2 {
+	report.mutex.Lock()
+	defer report.mutex.Unlock()
 	metrics := make([]models.MetricV2, 0, len(report.gauge)+len(report.counter))
 	for name, value := range report.gauge {
 		metric := models.MetricV2{
@@ -389,4 +426,93 @@ func reportToMetricsV2(report *report) []models.MetricV2 {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+func reportToPbMetrics(report *report) []*pb.Metric {
+	report.mutex.Lock()
+	defer report.mutex.Unlock()
+	m := make([]*pb.Metric, 0, len(report.gauge)+len(report.counter))
+	for name, value := range report.gauge {
+		kind := pb.MType_GAUGE
+		m = append(m, &pb.Metric{
+			Type:  &kind,
+			Id:    &name,
+			Value: &value,
+		})
+	}
+	for name, value := range report.counter {
+		kind := pb.MType_COUNTER
+		m = append(m, &pb.Metric{
+			Type:  &kind,
+			Id:    &name,
+			Delta: &value,
+		})
+	}
+	return m
+}
+
+// getOutboundIP determine outgoing IP from fake UDP request to server.
+func (a *Agent) getOutboundIP() net.IP {
+	log := a.Config.Logger.Logger
+	conn, err := net.Dial("udp4", a.Config.Address)
+	if err != nil {
+		log.Warn("failed to dial server. Skipping")
+		return nil
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	return conn.LocalAddr().(*net.UDPAddr).IP
+}
+
+func (a *Agent) setXRealIP(req *http.Request) {
+	addr := a.getOutboundIP()
+	if addr != nil {
+		req.Header.Set("X-Real-IP", addr.String())
+	}
+}
+
+func (a *Agent) grpcCallOptions(opts callOpts) []grpc.CallOption {
+	res := make([]grpc.CallOption, 0)
+	res = append(res, grpc.UseCompressor(gzip.Name))
+	addr := a.getOutboundIP()
+	if addr != nil {
+		md := metadata.Pairs(realip.XRealIp, addr.String())
+		res = append(res, grpc.Header(&md))
+	}
+	if opts.hash != "" {
+		md := metadata.Pairs(models.HTTPHeaderSign, opts.hash)
+		res = append(res, grpc.Header(&md))
+	}
+	return res
+}
+
+func (a *Agent) sendViaGRPC(ctx context.Context, metrics []*pb.Metric) error {
+	log := a.Config.Logger.Logger
+	client, err := grpc.NewClient(a.Config.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to create grpc client: %w", err)
+	}
+	defer func() {
+		_ = client.Close()
+	}()
+	c := pb.NewMetricsClient(client)
+
+	opts := newCallOpts()
+	if a.Config.Key != "" {
+		metricsBytes, er := json.Marshal(metrics)
+		if er != nil {
+			log.Errorw("marshal metrics", "error", er)
+			return fmt.Errorf("error marshal metrics: %w", er)
+		}
+		opts.hash = utils.Hash(metricsBytes, a.Config.Key)
+	}
+	resp, err := c.SendMetrics(ctx, &pb.SendMetricsRequest{
+		Metrics: metrics,
+	}, a.grpcCallOptions(*opts)...)
+	if err != nil || (resp != nil && resp.Error != nil) {
+		return fmt.Errorf("failed to send metrics: %w", err)
+	}
+	log.Info("Sent via gRPC: ", metrics)
+	return nil
 }

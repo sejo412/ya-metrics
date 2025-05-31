@@ -3,6 +3,8 @@ package models
 import (
 	"runtime"
 	"strconv"
+
+	pb "github.com/sejo412/ya-metrics/proto"
 )
 
 // RuntimeMetricsMap returns mapping for runtime metrics.
@@ -83,4 +85,75 @@ func ConvertV2ToV1(m *MetricV2) (*Metric, error) {
 		metric.Value = strconv.FormatFloat(*m.Value, 'f', -1, metricBitSize)
 	}
 	return metric, nil
+}
+
+// ConvertPbToV1 converts protobuf type to V1.
+func ConvertPbToV1(m *pb.Metric) Metric {
+	var mType string
+	var value string
+
+	switch *m.Type {
+	case pb.MType_GAUGE:
+		mType = "gauge"
+		value = strconv.FormatFloat(m.GetValue(), 'f', -1, metricBitSize)
+	case pb.MType_COUNTER:
+		mType = "counter"
+		value = strconv.FormatInt(m.GetDelta(), base10)
+	}
+	return Metric{
+		Kind:  mType,
+		Name:  *m.Id,
+		Value: value,
+	}
+}
+
+// ConvertPbsToV1s converts protobuf type to V1 slices.
+func ConvertPbsToV1s(m []*pb.Metric) []Metric {
+	result := make([]Metric, len(m))
+	for i, metric := range m {
+		result[i] = ConvertPbToV1(metric)
+	}
+	return result
+}
+
+// ConvertV1ToPb converts V1 metric to protobuf type.
+func ConvertV1ToPb(m Metric) (*pb.Metric, error) {
+	res := new(pb.Metric)
+	res.Id = &m.Name
+	res.Type, res.Delta, res.Value = nil, nil, nil
+	switch m.Kind {
+	case "counter":
+		mType := pb.MType_COUNTER
+		delta, err := strconv.Atoi(m.Value)
+		value := int64(delta)
+		if err != nil {
+			return nil, ErrNotInteger
+		}
+		res.Type = &mType
+		res.Delta = &value
+	case "gauge":
+		mType := pb.MType_GAUGE
+		value, err := strconv.ParseFloat(m.Value, metricBitSize)
+		if err != nil {
+			return nil, ErrNotFloat
+		}
+		res.Type = &mType
+		res.Value = &value
+	default:
+		return nil, ErrNotSupported
+	}
+	return res, nil
+}
+
+// ConvertV1sToPbs converts V1 metric slice to protobuf slice type.
+func ConvertV1sToPbs(m []Metric) ([]*pb.Metric, error) {
+	var err error
+	result := make([]*pb.Metric, len(m))
+	for i, metric := range m {
+		result[i], err = ConvertV1ToPb(metric)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }

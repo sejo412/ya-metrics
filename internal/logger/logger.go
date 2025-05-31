@@ -6,14 +6,12 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Logger struct {
-	*zap.SugaredLogger
-}
-
-type Middleware struct {
 	Logger *zap.SugaredLogger
+	Level  zap.AtomicLevel
 }
 
 type responseData struct {
@@ -37,11 +35,7 @@ func (r *LoggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseData.status = statusCode
 }
 
-func NewMiddleware(logger *zap.SugaredLogger) *Middleware {
-	return &Middleware{Logger: logger}
-}
-
-func (lm *Middleware) WithLogging(h http.Handler) http.Handler {
+func (l *Logger) WithLogging(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -56,7 +50,7 @@ func (lm *Middleware) WithLogging(h http.Handler) http.Handler {
 
 		h.ServeHTTP(&lw, r)
 		duration := time.Since(start)
-		lm.Logger.Infow(
+		l.Logger.Infow(
 			"incoming request",
 			"uri", r.RequestURI,
 			"method", r.Method,
@@ -67,11 +61,21 @@ func (lm *Middleware) WithLogging(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-func NewLogger() (*Logger, error) {
+func (l *Logger) IntToLevel(level int) zapcore.Level {
+	return zapcore.Level(level)
+}
+
+func MustNewLogger(debug bool) *Logger {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	res := &Logger{logger.Sugar()}
-	return res, nil
+	lvl := zap.NewAtomicLevel()
+	if debug {
+		lvl.SetLevel(zap.DebugLevel)
+	} else {
+		lvl.SetLevel(zap.InfoLevel)
+	}
+	res := &Logger{Logger: logger.Sugar(), Level: lvl}
+	return res
 }

@@ -3,74 +3,39 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sejo412/ya-metrics/internal/config"
-	"github.com/sejo412/ya-metrics/internal/logger"
-	"github.com/sejo412/ya-metrics/internal/models"
 	"github.com/sejo412/ya-metrics/internal/storage"
 	"github.com/sejo412/ya-metrics/pkg/utils"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/reflection"
 )
 
-type Router struct {
-	chi.Router
-	opts config.Options
+type Server struct {
+	HTTPServer *Router
+	GRPCServer *GRPCServer
 }
 
-func NewRouter() *Router {
-	return &Router{chi.NewRouter(), config.Options{}}
-}
-
-func NewRouterWithConfig(opts *config.Options, logs *logger.Middleware) *Router {
-	router := NewRouter()
-
-	// config & storage
-	router.opts.Config = opts.Config
-	router.opts.Storage = opts.Storage
-	router.opts.PrivateKey = opts.PrivateKey
-
-	// middlewares
-	router.Use(logs.WithLogging)
-	router.Use(middleware.WithValue("key", opts.Config.Key))
-	if router.opts.PrivateKey != nil {
-		router.Use(router.decryptHandler)
+func NewServerWithOptions(opts *config.Options) *Server {
+	return &Server{
+		HTTPServer: NewRouterWithOptions(opts),
+		GRPCServer: NewGRPCServerWithOptions(opts),
 	}
-	router.Use(checkHashHandle)
-	router.Use(gzipHandle)
-
-	// requests
-	router.Post("/"+models.MetricPathPostPrefix+"/{kind}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
-		metric := models.Metric{
-			Kind:  chi.URLParam(r, "kind"),
-			Value: chi.URLParam(r, "value"),
-		}
-		if err := CheckMetricKind(metric); err != nil {
-			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
-			return
-		}
-		router.postUpdate(w, r)
-	})
-	router.Post("/"+models.MetricPathPostPrefix+"/", router.postUpdateJSON)
-	router.Post("/"+models.MetricPathPostsPrefix+"/", router.postUpdatesJSON)
-	router.Get("/"+models.MetricPathGetPrefix+"/{kind}/{name}", router.getValue)
-	router.Get("/", router.getIndex)
-	router.Post("/"+models.MetricPathGetPrefix+"/", router.getMetricJSON)
-	router.Get("/"+models.PingPath, router.pingStorage)
-
-	return router
 }
 
 func StartServer(ctx context.Context, opts *config.Options,
-	logs *logger.Middleware) error {
+) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	log := logs.Logger
+	log := opts.Logger.Logger
 	if opts.Config.CryptoKey != "" {
 		k, err := os.ReadFile(opts.Config.CryptoKey)
 		if err != nil {
@@ -82,29 +47,69 @@ func StartServer(ctx context.Context, opts *config.Options,
 		}
 	}
 
-	// we wan't check error twice (already checked in main)
-	dsn, _ := storage.ParseDSN(opts.Config.DatabaseDSN)
+	cfg := opts.Config
+	warnings := make([]string, 0)
+	if cfg.TrustedSubnet != "" {
+		var er error
+		opts.TrustedSubnets, er = stringCIDRsToIPNets(cfg.TrustedSubnet)
+		if er != nil {
+			warnings = append(warnings, er.Error())
+		}
+	} else {
+		opts.TrustedSubnets = []net.IPNet{}
+	}
+
+	// we don't want check error twice (already checked in main)
+	dsn, _ := storage.ParseDSN(cfg.DatabaseDSN)
 	// start flushing metrics on timer
 	wg := sync.WaitGroup{}
-	if opts.Config.StoreInterval > 0 && dsn.Scheme == "memory" && opts.Config.StoreFile != "" {
+	if cfg.StoreInterval > 0 && dsn.Scheme == "memory" && cfg.StoreFile != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			FlushingMetrics(ctx, opts.Storage, opts.Config.StoreFile, opts.Config.StoreInterval)
+			FlushingMetrics(ctx, opts.Storage, cfg.StoreFile, cfg.StoreInterval)
 		}()
 	}
-	router := NewRouterWithConfig(opts, logs)
 
+	// convert trusted subnets to human readable format
+	hrTrustedSubnets := make([]string, 0, len(opts.TrustedSubnets))
+	for _, subnet := range opts.TrustedSubnets {
+		hrTrustedSubnets = append(hrTrustedSubnets, subnet.String())
+	}
+
+	setKey := false
+	if cfg.Key != "" {
+		setKey = true
+	}
 	log.Infow("server starting",
 		"version", config.GetVersion(),
-		"address", opts.Config.Address,
-		"storeInterval", opts.Config.StoreInterval,
-		"fileStoragePath", opts.Config.StoreFile,
-		"restore", opts.Config.Restore)
-	server := &http.Server{
-		Addr:              opts.Config.Address,
-		Handler:           router,
+		"address", cfg.Address,
+		"address_grpc", cfg.AddressGRPC,
+		"storeInterval", cfg.StoreInterval,
+		"fileStoragePath", cfg.StoreFile,
+		"restore", cfg.Restore,
+		"setKey", setKey,
+		"trustedSubnets", hrTrustedSubnets)
+	if len(warnings) > 0 {
+		log.Warnln("warnings: ", warnings)
+	}
+	server := NewServerWithOptions(opts)
+	httpServer := &http.Server{
+		Addr:              cfg.Address,
+		Handler:           server.HTTPServer,
 		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	grpcServer := grpc.NewServer(gRPCServerOptions(server.GRPCServer, cfg.Key)...)
+	RegisterGRPCServer(grpcServer, server.GRPCServer)
+
+	// for debug with grpcurl
+	reflection.Register(grpcServer)
+
+	grpcListener, err := net.Listen("tcp", cfg.AddressGRPC)
+	if err != nil {
+		log.Errorw("failed to listen", "address", cfg.AddressGRPC, "error", err)
+		return err
 	}
 
 	idleConnsClosed := make(chan struct{})
@@ -114,14 +119,22 @@ func StartServer(ctx context.Context, opts *config.Options,
 		<-sigs
 		log.Info("shutting down server...")
 		cancel()
-		ctx, cancel := context.WithTimeout(context.Background(), config.GracefulTimeout)
-		defer cancel()
-		if er := server.Shutdown(ctx); er != nil {
-			log.Errorf("error shutting down server: %v", er)
+		ct, cnl := context.WithTimeout(context.Background(), config.GracefulTimeout)
+		defer cnl()
+		if er := httpServer.Shutdown(ct); er != nil {
+			log.Errorw("shutting down server", "error", er)
 		}
+		grpcServer.GracefulStop()
 		close(idleConnsClosed)
 	}()
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	var errGroup errgroup.Group
+	errGroup.Go(func() error {
+		return grpcServer.Serve(grpcListener)
+	})
+	errGroup.Go(func() error {
+		return httpServer.ListenAndServe()
+	})
+	if err = errGroup.Wait(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("error starting server: %w", err)
 	}
 	<-idleConnsClosed

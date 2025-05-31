@@ -6,7 +6,6 @@ import (
 	"errors"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"os"
 
@@ -91,59 +90,66 @@ func checkHashHandle(next http.Handler) http.Handler {
 	})
 }
 
-func (cr *Router) decryptHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
+func (r *Router) decryptHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		defer func() {
-			_ = r.Body.Close()
+			_ = req.Body.Close()
 		}()
 		var data []byte
 		if len(body) > 0 {
-			data, err = utils.Decode(body, cr.opts.PrivateKey)
+			data, err = utils.Decode(body, r.opts.PrivateKey)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 		}
-		r.Body = io.NopCloser(bytes.NewReader(data))
-		next.ServeHTTP(w, r)
+		req.Body = io.NopCloser(bytes.NewReader(data))
+		next.ServeHTTP(w, req)
 	})
 }
 
-func (cr *Router) postUpdate(w http.ResponseWriter, r *http.Request) {
+func (r *Router) postUpdate(w http.ResponseWriter, req *http.Request) {
+	log := r.opts.Logger.Logger
+	cfg := r.opts.Config
 	metric := models.Metric{
-		Kind:  chi.URLParam(r, "kind"),
-		Name:  chi.URLParam(r, "name"),
-		Value: chi.URLParam(r, "value"),
+		Kind:  chi.URLParam(req, "kind"),
+		Name:  chi.URLParam(req, "name"),
+		Value: chi.URLParam(req, "value"),
 	}
-	store := cr.opts.Storage
+	store := r.opts.Storage
 	if err := UpdateMetric(store, metric); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("%v: add or update metric %s", err, metric.Name)
+		log.Errorw("add or update metric",
+			"metric", metric.Name,
+			"error", err)
 	}
-
-	cfg := cr.opts.Config
 	if cfg.StoreInterval == 0 {
 		f, err := os.Create(cfg.StoreFile)
 		defer func() {
 			_ = f.Close()
 		}()
 		if err != nil {
-			log.Printf("error create file %s: %v", cfg.StoreFile, err)
+			log.Errorw("create file",
+				"file", cfg.StoreFile,
+				"error", err)
 		}
 		if err = store.Flush(context.TODO(), f); err != nil {
-			log.Printf("%v: flush store %s", err, cfg.StoreFile)
+			log.Errorw("flush store",
+				"file", cfg.StoreFile,
+				"error", err)
 		}
 	}
 }
 
-func (cr *Router) getValue(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
-	store := cr.opts.Storage
+func (r *Router) getValue(w http.ResponseWriter, req *http.Request) {
+	log := r.opts.Logger.Logger
+	name := chi.URLParam(req, "name")
+	store := r.opts.Storage
 	value, err := GetMetricValue(store, name)
 	switch {
 	case errors.Is(err, models.ErrHTTPNotFound):
@@ -151,34 +157,37 @@ func (cr *Router) getValue(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, models.ErrHTTPInternalServerError):
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("%v: get value %s", err, name)
+		log.Errorw("get value",
+			"name", name,
+			"error", err)
 		return
 	}
 	if _, err = io.WriteString(w, value); err != nil {
-		log.Printf("%v: write to response writer", err)
+		log.Errorw("write to response writer",
+			"error", err)
 	}
 }
 
-func (cr *Router) getIndex(w http.ResponseWriter, r *http.Request) {
-	store := cr.opts.Storage
+func (r *Router) getIndex(w http.ResponseWriter, req *http.Request) {
+	log := r.opts.Logger.Logger
+	store := r.opts.Storage
 	metrics := GetAllMetricValues(store)
 	tmpl, err := template.New("index").Parse(index)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
-		log.Print(err)
+		log.Errorw("parse index template", "error", err)
 		return
 	}
-
 	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationTextHTML)
 	buf := new(bytes.Buffer)
 	err = tmpl.Execute(buf, metrics)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
-		log.Print(err)
+		log.Errorw("generate index page", "error", err)
 		return
 	}
 	resp := buf.Bytes()
-	if r.Header.Get(models.HTTPHeaderAcceptEncoding) == models.HTTPHeaderEncodingGzip {
+	if req.Header.Get(models.HTTPHeaderAcceptEncoding) == models.HTTPHeaderEncodingGzip {
 		resp, err = utils.Compress(resp)
 		if err == nil {
 			w.Header().Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
@@ -187,72 +196,78 @@ func (cr *Router) getIndex(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(resp)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
+		log.Errorw("write response", "error", err)
 		return
 	}
 }
 
-func (cr *Router) postUpdateJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
+func (r *Router) postUpdateJSON(w http.ResponseWriter, req *http.Request) {
+	log := r.opts.Logger.Logger
+	if req.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r.Body)
+	_, err := buf.ReadFrom(req.Body)
 	if err != nil {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 	defer func() {
-		_ = r.Body.Close()
+		_ = req.Body.Close()
 	}()
 
 	data := buf.Bytes()
 
-	store := cr.opts.Storage
+	store := r.opts.Storage
 	resp, err := UpdateMetricFromJSON(store, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	cfg := cr.opts.Config
+	cfg := r.opts.Config
 	if cfg.StoreInterval == 0 {
-		f, err1 := os.Create(cfg.StoreFile)
-		defer func() {
-			_ = f.Close()
+		func() {
+			f, err1 := os.Create(cfg.StoreFile)
+			if err1 != nil {
+				log.Errorw("create file", "file", cfg.StoreFile, "error", err1)
+				return
+			}
+			defer func() {
+				_ = f.Close()
+			}()
+			if err2 := store.Flush(context.TODO(), f); err2 != nil {
+				log.Errorw("flush store", "file", cfg.StoreFile, "error", err2)
+			}
 		}()
-		if err1 != nil {
-			log.Printf("error create file %s: %v", cfg.StoreFile, err1)
-		}
-		if err2 := store.Flush(context.TODO(), f); err2 != nil {
-			log.Printf("%v: flush store %s", err2, cfg.StoreFile)
-		}
 	}
 	w.Header().Set(models.HTTPHeaderContentType, models.HTTPHeaderContentTypeApplicationJSON)
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(resp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Errorw("write response", "error", err)
 		return
 	}
 }
-func (cr *Router) postUpdatesJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
+func (r *Router) postUpdatesJSON(w http.ResponseWriter, req *http.Request) {
+	if req.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r.Body)
+	_, err := buf.ReadFrom(req.Body)
 	if err != nil {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 	defer func() {
-		_ = r.Body.Close()
+		_ = req.Body.Close()
 	}()
 
 	data := buf.Bytes()
 
-	store := cr.opts.Storage
+	store := r.opts.Storage
 	err = UpdateMetricsFromJSON(store, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -261,21 +276,21 @@ func (cr *Router) postUpdatesJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (cr *Router) getMetricJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
+func (r *Router) getMetricJSON(w http.ResponseWriter, req *http.Request) {
+	if req.Header.Get(models.HTTPHeaderContentType) != models.HTTPHeaderContentTypeApplicationJSON {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r.Body)
+	_, err := buf.ReadFrom(req.Body)
 	if err != nil {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
 		return
 	}
 	defer func() {
-		_ = r.Body.Close()
+		_ = req.Body.Close()
 	}()
-	store := cr.opts.Storage
+	store := r.opts.Storage
 	metric, err := ParsePostRequestJSON(buf.Bytes())
 	if err != nil {
 		http.Error(w, models.ErrHTTPBadRequest.Error(), http.StatusBadRequest)
@@ -286,7 +301,7 @@ func (cr *Router) getMetricJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, models.ErrHTTPNotFound.Error(), http.StatusNotFound)
 		return
 	}
-	if r.Header.Get(models.HTTPHeaderAcceptEncoding) == models.HTTPHeaderEncodingGzip {
+	if req.Header.Get(models.HTTPHeaderAcceptEncoding) == models.HTTPHeaderEncodingGzip {
 		resp, err = utils.Compress(resp)
 		if err == nil {
 			w.Header().Set(models.HTTPHeaderContentEncoding, models.HTTPHeaderEncodingGzip)
@@ -301,15 +316,31 @@ func (cr *Router) getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (cr *Router) pingStorage(w http.ResponseWriter, r *http.Request) {
-	store := cr.opts.Storage
+func (r *Router) pingStorage(w http.ResponseWriter, req *http.Request) {
+	log := r.opts.Logger.Logger
+	store := r.opts.Storage
 	ctx := context.Background()
 	if err := store.Ping(ctx); err != nil {
 		http.Error(w, models.ErrHTTPInternalServerError.Error(), http.StatusInternalServerError)
-		log.Print(err)
+		log.Errorw("ping storage", "error", err)
 		return
 	} else {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+}
+
+func (r *Router) checkXRealIPHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// skip checks if not POST method
+		if req.Method != http.MethodPost {
+			next.ServeHTTP(w, req)
+		}
+		xRealIP := req.Header.Get("X-Real-Ip")
+		if !isNetsContainsIP(xRealIP, r.opts.TrustedSubnets) {
+			http.Error(w, models.ErrHTTPForbidden.Error(), http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
 }
